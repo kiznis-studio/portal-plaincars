@@ -1,0 +1,49 @@
+---
+export const prerender = false;
+import Base from '../../layouts/Base.astro';
+import Breadcrumb from '../../components/ui/Breadcrumb.astro';
+import { getAllMakes } from '../../lib/db';
+
+const db = Astro.locals.runtime.env.DB;
+const makes = await getAllMakes(db);
+---
+
+<Base
+  title="All Vehicle Makes"
+  description="Browse NHTSA complaint and recall data for all vehicle makes. Find safety information for any car, truck, or SUV."
+  breadcrumbs={[{ name: 'Home', href: '/' }, { name: 'Makes' }]}
+>
+  <div class="max-w-6xl mx-auto px-4 py-8">
+    <Breadcrumb items={[{ name: 'Home', href: '/' }, { name: 'Makes' }]} />
+
+    <h1 class="text-3xl font-bold text-[var(--color-text)] mb-2 mt-4">All Vehicle Makes</h1>
+    <p class="text-[var(--color-text-secondary)] mb-8">
+      Browse safety data for {makes.length} vehicle makes. Select a make to see models, complaints, and recalls.
+    </p>
+
+    <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg overflow-hidden">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-[var(--color-border)] bg-[var(--color-surface-alt)]">
+            <th class="text-left px-4 py-3 font-medium">Make</th>
+            <th class="text-right px-4 py-3 font-medium">Models</th>
+            <th class="text-right px-4 py-3 font-medium">Complaints</th>
+            <th class="text-right px-4 py-3 font-medium hidden sm:table-cell">Recalls</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-[var(--color-border)]">
+          {makes.map(m => (
+            <tr class="hover:bg-[var(--color-surface-alt)] transition-colors">
+              <td class="px-4 py-3">
+                <a href={`/make/${m.slug}`} class="font-medium text-[var(--color-primary)] hover:underline">{m.make_name}</a>
+              </td>
+              <td class="text-right px-4 py-3 text-[var(--color-text-secondary)]">{m.model_count}</td>
+              <td class="text-right px-4 py-3 text-[var(--color-text-secondary)]">{m.complaint_count.toLocaleString()}</td>
+              <td class="text-right px-4 py-3 text-[var(--color-text-secondary)] hidden sm:table-cell">{m.recall_count.toLocaleString()}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</Base>

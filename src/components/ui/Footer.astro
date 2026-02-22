@@ -1,0 +1,49 @@
+---
+const year = new Date().getFullYear();
+---
+
+<footer class="border-t border-[var(--color-border)] bg-[var(--color-surface)] py-16 md:py-20">
+  <div class="max-w-6xl mx-auto px-4">
+    <div class="grid grid-cols-2 md:grid-cols-12 gap-8">
+      <div class="col-span-2 md:col-span-4">
+        <a href="/" class="flex items-center gap-2 font-bold text-lg text-[var(--color-primary)] mb-3">PlainCars</a>
+        <p class="text-sm text-[var(--color-text-secondary)] leading-relaxed">
+          Free vehicle safety data from NHTSA. Complaints, recalls, and safety ratings for every car, truck, and SUV.
+        </p>
+      </div>
+
+      <div class="md:col-span-2">
+        <h3 class="font-semibold text-sm text-[var(--color-text)] mb-3">Browse</h3>
+        <ul class="space-y-2 text-sm text-[var(--color-text-secondary)]">
+          <li><a href="/make" class="hover:text-[var(--color-primary)]">All Makes</a></li>
+          <li><a href="/rankings" class="hover:text-[var(--color-primary)]">Rankings</a></li>
+          <li><a href="/recall" class="hover:text-[var(--color-primary)]">Recalls</a></li>
+          <li><a href="/search" class="hover:text-[var(--color-primary)]">Search</a></li>
+        </ul>
+      </div>
+
+      <div class="md:col-span-2">
+        <h3 class="font-semibold text-sm text-[var(--color-text)] mb-3">Legal</h3>
+        <ul class="space-y-2 text-sm text-[var(--color-text-secondary)]">
+          <li><a href="/about" class="hover:text-[var(--color-primary)]">About</a></li>
+          <li><a href="/privacy" class="hover:text-[var(--color-primary)]">Privacy</a></li>
+          <li><a href="/terms" class="hover:text-[var(--color-primary)]">Terms</a></li>
+        </ul>
+      </div>
+
+      <div class="col-span-2 md:col-span-4">
+        <h3 class="font-semibold text-sm text-[var(--color-text)] mb-3">Our Network</h3>
+        <ul class="space-y-2 text-sm text-[var(--color-text-secondary)]">
+          <li><a href="https://plaincrime.com" target="_blank" rel="noopener" class="hover:text-[var(--color-primary)]">PlainCrime — Crime Statistics</a></li>
+          <li><a href="https://plainenviro.com" target="_blank" rel="noopener" class="hover:text-[var(--color-primary)]">PlainEnviro — Environmental Data</a></li>
+          <li><a href="https://plainschools.com" target="_blank" rel="noopener" class="hover:text-[var(--color-primary)]">PlainSchools — School Data</a></li>
+          <li><a href="https://plainrent.com" target="_blank" rel="noopener" class="hover:text-[var(--color-primary)]">PlainRent — Fair Market Rents</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="mt-12 pt-8 border-t border-[var(--color-border)] text-center text-xs text-[var(--color-text-secondary)]">
+      <p>&copy; {year} PlainCars. Data from <a href="https://www.nhtsa.gov" target="_blank" rel="noopener" class="underline hover:text-[var(--color-primary)]">NHTSA</a>. Not affiliated with the U.S. government.</p>
+    </div>
+  </div>
+</footer>

@@ -1,0 +1,25 @@
+---
+export const prerender = true;
+import Base from '../layouts/Base.astro';
+import Breadcrumb from '../components/ui/Breadcrumb.astro';
+---
+
+<Base title="About PlainCars" description="PlainCars provides free access to NHTSA vehicle safety data including complaints, recalls, and crash test ratings.">
+  <div class="max-w-3xl mx-auto px-4 py-8">
+    <Breadcrumb items={[{ name: 'Home', href: '/' }, { name: 'About' }]} />
+    <h1 class="text-3xl font-bold text-[var(--color-text)] mb-6 mt-4">About PlainCars</h1>
+    <div class="prose max-w-none text-[var(--color-text-secondary)] space-y-4">
+      <p>PlainCars makes NHTSA vehicle safety data accessible and searchable. We process millions of complaint records, recall campaigns, and safety ratings from the National Highway Traffic Safety Administration to help consumers make informed decisions about vehicle safety.</p>
+      <h2 class="text-xl font-semibold text-[var(--color-text)] mt-8">Data Sources</h2>
+      <ul class="list-disc pl-6 space-y-2">
+        <li><strong>NHTSA ODI Complaints</strong> — Consumer-submitted vehicle complaints, updated daily</li>
+        <li><strong>NHTSA Recall Campaigns</strong> — Official safety recall data via NHTSA API</li>
+        <li><strong>NCAP Safety Ratings</strong> — Crash test star ratings from NHTSA</li>
+      </ul>
+      <h2 class="text-xl font-semibold text-[var(--color-text)] mt-8">Methodology</h2>
+      <p>All data comes directly from NHTSA without modification. Complaint counts, crash reports, and injury/death tallies are as reported by consumers to NHTSA. Safety ratings are official NCAP crash test results. We do not editorialize, rank, or rate vehicles beyond presenting the official data.</p>
+      <h2 class="text-xl font-semibold text-[var(--color-text)] mt-8">Disclaimer</h2>
+      <p>PlainCars is not affiliated with NHTSA or the U.S. Department of Transportation. Data is provided for informational purposes only. Always check <a href="https://www.nhtsa.gov" target="_blank" rel="noopener">NHTSA.gov</a> for the most current information and to file complaints.</p>
+    </div>
+  </div>
+</Base>

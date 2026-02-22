@@ -1,0 +1,21 @@
+---
+export const prerender = true;
+import Base from '../layouts/Base.astro';
+import Breadcrumb from '../components/ui/Breadcrumb.astro';
+---
+
+<Base title="Terms of Use" description="PlainCars terms of use. Data is provided as-is from public government sources.">
+  <div class="max-w-3xl mx-auto px-4 py-8">
+    <Breadcrumb items={[{ name: 'Home', href: '/' }, { name: 'Terms' }]} />
+    <h1 class="text-3xl font-bold text-[var(--color-text)] mb-6 mt-4">Terms of Use</h1>
+    <div class="text-[var(--color-text-secondary)] space-y-4 text-sm leading-relaxed">
+      <p><strong>Last updated:</strong> February 2026</p>
+      <h2 class="text-lg font-semibold text-[var(--color-text)] mt-6">Use of Data</h2>
+      <p>All vehicle safety data on PlainCars comes from the National Highway Traffic Safety Administration (NHTSA) and is provided as-is for informational purposes only. We make no warranties about the accuracy, completeness, or timeliness of the data.</p>
+      <h2 class="text-lg font-semibold text-[var(--color-text)] mt-6">Limitation of Liability</h2>
+      <p>PlainCars shall not be liable for any decisions made based on the data presented on this site. Always verify safety information directly with NHTSA, your vehicle manufacturer, or a qualified mechanic.</p>
+      <h2 class="text-lg font-semibold text-[var(--color-text)] mt-6">No Professional Advice</h2>
+      <p>Nothing on this site constitutes professional automotive, legal, or safety advice. If you believe your vehicle has a safety defect, file a complaint at <a href="https://www.nhtsa.gov/report-a-safety-problem" target="_blank" rel="noopener" class="text-[var(--color-primary)] underline">NHTSA.gov</a>.</p>
+    </div>
+  </div>
+</Base>

@@ -1,0 +1,9 @@
+name = "portal-plaincars"
+pages_build_output_dir = "./dist"
+compatibility_date = "2025-03-25"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "plaincars-db"
+database_id = "6293300f-047b-42e4-8fb3-2be24ac46cbe"

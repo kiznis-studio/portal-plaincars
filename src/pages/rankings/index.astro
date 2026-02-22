@@ -1,0 +1,83 @@
+---
+export const prerender = false;
+import Base from '../../layouts/Base.astro';
+import Breadcrumb from '../../components/ui/Breadcrumb.astro';
+import { getMostComplainedModels, getMostDangerousModelYears } from '../../lib/db';
+
+const db = Astro.locals.runtime.env.DB;
+const [topComplained, topDangerous] = await Promise.all([
+  getMostComplainedModels(db, 25),
+  getMostDangerousModelYears(db, 25),
+]);
+---
+
+<Base
+  title="Vehicle Safety Rankings"
+  description="Rankings of vehicles by NHTSA complaints, crashes, fires, and deaths. Find the most complained-about and most dangerous vehicles."
+  breadcrumbs={[{ name: 'Home', href: '/' }, { name: 'Rankings' }]}
+>
+  <div class="max-w-6xl mx-auto px-4 py-8">
+    <Breadcrumb items={[{ name: 'Home', href: '/' }, { name: 'Rankings' }]} />
+
+    <h1 class="text-3xl font-bold text-[var(--color-text)] mb-2 mt-4">Vehicle Safety Rankings</h1>
+    <p class="text-[var(--color-text-secondary)] mb-8">Vehicles ranked by NHTSA complaint data.</p>
+
+    <div class="grid md:grid-cols-2 gap-8">
+      <!-- Most Complained -->
+      <div>
+        <h2 class="text-xl font-bold text-[var(--color-text)] mb-4">Most Complained Models</h2>
+        <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg overflow-hidden">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-[var(--color-border)] bg-[var(--color-surface-alt)]">
+                <th class="text-left px-3 py-2 font-medium">#</th>
+                <th class="text-left px-3 py-2 font-medium">Vehicle</th>
+                <th class="text-right px-3 py-2 font-medium">Count</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-[var(--color-border)]">
+              {topComplained.map((m: any, i: number) => (
+                <tr class="hover:bg-[var(--color-surface-alt)]">
+                  <td class="px-3 py-2 text-[var(--color-text-secondary)]">{i + 1}</td>
+                  <td class="px-3 py-2">
+                    <a href={`/make/${m.slug}`} class="text-[var(--color-primary)] hover:underline text-sm">{m.make_name} {m.model_name}</a>
+                  </td>
+                  <td class="text-right px-3 py-2 text-[var(--color-text-secondary)]">{m.complaint_count?.toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Most Dangerous -->
+      <div>
+        <h2 class="text-xl font-bold text-[var(--color-text)] mb-4">Most Dangerous (Deaths & Crashes)</h2>
+        <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg overflow-hidden">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-[var(--color-border)] bg-[var(--color-surface-alt)]">
+                <th class="text-left px-3 py-2 font-medium">#</th>
+                <th class="text-left px-3 py-2 font-medium">Vehicle</th>
+                <th class="text-right px-3 py-2 font-medium">Deaths</th>
+                <th class="text-right px-3 py-2 font-medium">Crashes</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-[var(--color-border)]">
+              {topDangerous.map((m: any, i: number) => (
+                <tr class="hover:bg-[var(--color-surface-alt)]">
+                  <td class="px-3 py-2 text-[var(--color-text-secondary)]">{i + 1}</td>
+                  <td class="px-3 py-2">
+                    <a href={`/make/${m.model_id}-${m.year}`} class="text-[var(--color-primary)] hover:underline text-sm">{m.year} {m.make_name} {m.model_name}</a>
+                  </td>
+                  <td class="text-right px-3 py-2 text-amber-600 dark:text-amber-400 font-medium">{m.death_count}</td>
+                  <td class="text-right px-3 py-2 text-[var(--color-text-secondary)]">{m.crash_count}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</Base>

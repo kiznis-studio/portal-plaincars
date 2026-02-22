@@ -1,0 +1,42 @@
+---
+export const prerender = false;
+import Base from '../../layouts/Base.astro';
+import Breadcrumb from '../../components/ui/Breadcrumb.astro';
+import { getRecentRecalls } from '../../lib/db';
+
+const db = Astro.locals.runtime.env.DB;
+const recalls = await getRecentRecalls(db, 50);
+---
+
+<Base
+  title="Recent Vehicle Recalls"
+  description="Latest NHTSA vehicle recall campaigns. Find safety recalls for cars, trucks, and SUVs."
+  breadcrumbs={[{ name: 'Home', href: '/' }, { name: 'Recalls' }]}
+>
+  <div class="max-w-6xl mx-auto px-4 py-8">
+    <Breadcrumb items={[{ name: 'Home', href: '/' }, { name: 'Recalls' }]} />
+
+    <h1 class="text-3xl font-bold text-[var(--color-text)] mb-2 mt-4">Recent Vehicle Recalls</h1>
+    <p class="text-[var(--color-text-secondary)] mb-8">
+      Latest NHTSA safety recall campaigns.
+    </p>
+
+    {recalls.length > 0 ? (
+      <div class="space-y-4">
+        {recalls.map((r: any) => (
+          <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-5">
+            <div class="flex items-start justify-between mb-2">
+              <span class="text-xs font-mono text-[var(--color-text-secondary)] bg-[var(--color-surface-alt)] px-2 py-1 rounded">{r.campaign_number}</span>
+              <span class="text-xs text-[var(--color-text-secondary)]">{r.report_date}</span>
+            </div>
+            <h3 class="font-medium text-[var(--color-text)] mb-1">{r.year} — {r.component}</h3>
+            <p class="text-sm text-[var(--color-text-secondary)] mb-2">{r.summary?.slice(0, 400)}</p>
+            {r.consequence && <p class="text-sm text-amber-600 dark:text-amber-400"><strong>Risk:</strong> {r.consequence.slice(0, 200)}</p>}
+          </div>
+        ))}
+      </div>
+    ) : (
+      <p class="text-[var(--color-text-secondary)]">Recall data is being loaded. Check back soon.</p>
+    )}
+  </div>
+</Base>

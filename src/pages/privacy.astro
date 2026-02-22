@@ -1,0 +1,23 @@
+---
+export const prerender = true;
+import Base from '../layouts/Base.astro';
+import Breadcrumb from '../components/ui/Breadcrumb.astro';
+---
+
+<Base title="Privacy Policy" description="PlainCars privacy policy. We use cookie-free analytics and collect no personal data.">
+  <div class="max-w-3xl mx-auto px-4 py-8">
+    <Breadcrumb items={[{ name: 'Home', href: '/' }, { name: 'Privacy' }]} />
+    <h1 class="text-3xl font-bold text-[var(--color-text)] mb-6 mt-4">Privacy Policy</h1>
+    <div class="text-[var(--color-text-secondary)] space-y-4 text-sm leading-relaxed">
+      <p><strong>Last updated:</strong> February 2026</p>
+      <h2 class="text-lg font-semibold text-[var(--color-text)] mt-6">Analytics</h2>
+      <p>We use Umami, a privacy-focused, cookie-free analytics tool. It collects anonymous page view data (page URL, referrer, browser type, country) with no personal identifiers, no cookies, and no cross-site tracking.</p>
+      <h2 class="text-lg font-semibold text-[var(--color-text)] mt-6">Data Collection</h2>
+      <p>PlainCars does not collect personal information. We do not use cookies, tracking pixels, or advertising networks. All vehicle data displayed comes from public NHTSA sources.</p>
+      <h2 class="text-lg font-semibold text-[var(--color-text)] mt-6">Third-Party Services</h2>
+      <p>The site is hosted on Cloudflare Pages. Cloudflare may process technical data (IP addresses) as described in their privacy policy.</p>
+      <h2 class="text-lg font-semibold text-[var(--color-text)] mt-6">Contact</h2>
+      <p>Questions about this policy? Contact us at privacy@plaincars.com.</p>
+    </div>
+  </div>
+</Base>

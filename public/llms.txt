@@ -1,0 +1,30 @@
+# PlainCars — NHTSA Vehicle Safety Data
+
+> PlainCars provides free access to NHTSA vehicle safety data including consumer complaints, recall campaigns, and crash test ratings.
+
+## Data Sources
+- NHTSA ODI Complaints — Consumer-submitted vehicle safety complaints
+- NHTSA Recall Campaigns — Official safety recall data
+- NCAP Safety Ratings — Crash test star ratings
+
+## Site Structure
+- /make — Browse all vehicle makes
+- /make/[make] — Models for a specific make
+- /make/[make]/[model] — All years for a model
+- /make/[make]/[model]-[year] — Year-specific safety data
+- /rankings — Most complained and most dangerous vehicles
+- /recall — Recent recall campaigns
+- /search — Search vehicles by make/model
+
+## Data Details
+- 70 major vehicle makes
+- 3,585 models
+- 21,000+ model years
+- 450,000+ individual complaints
+- Complaint data from NHTSA bulk files, updated periodically
+- Recall data from NHTSA API
+- Safety ratings from NCAP crash tests
+
+## Contact
+- Website: https://plaincars.com
+- About: https://plaincars.com/about

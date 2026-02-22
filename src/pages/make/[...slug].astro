@@ -1,0 +1,344 @@
+---
+export const prerender = false;
+import Base from '../../layouts/Base.astro';
+import Breadcrumb from '../../components/ui/Breadcrumb.astro';
+import { getMakeBySlug, getModelsByMake, getModelBySlug, getModelYears, getModelYearById, getComplaintStats, getComplaints, getRecallsByModelYear } from '../../lib/db';
+
+const db = Astro.locals.runtime.env.DB;
+const slugPath = Astro.params.slug || '';
+
+// Route resolution order:
+// 1. Try as make slug (e.g., "toyota")
+// 2. Try as model slug (e.g., "toyota-camry")
+// 3. Try as model-year slug (e.g., "toyota-camry-2024")
+
+let make = await getMakeBySlug(db, slugPath);
+let model = null;
+let modelYear = null;
+let stats: any[] = [];
+let complaints: any[] = [];
+let recalls: any[] = [];
+let years: any[] = [];
+let models: any[] = [];
+
+if (make) {
+  // Make page
+  models = await getModelsByMake(db, make.make_id);
+} else {
+  // Try as model
+  model = await getModelBySlug(db, slugPath);
+  if (model) {
+    years = await getModelYears(db, model.model_id);
+    make = await getMakeBySlug(db, model.make_id);
+  } else {
+    // Try as model-year (slug ends with -YYYY)
+    const yearMatch = slugPath.match(/-(\d{4})$/);
+    if (yearMatch) {
+      modelYear = await getModelYearById(db, slugPath);
+      if (modelYear) {
+        const modelSlug = slugPath.replace(/-\d{4}$/, '');
+        model = await getModelBySlug(db, modelSlug);
+        make = model ? await getMakeBySlug(db, model.make_id) : null;
+        [stats, complaints, recalls] = await Promise.all([
+          getComplaintStats(db, slugPath),
+          getComplaints(db, slugPath, 30),
+          getRecallsByModelYear(db, slugPath),
+        ]);
+      }
+    }
+  }
+}
+
+if (!make && !model && !modelYear) return Astro.redirect('/404');
+
+const pageType = modelYear ? 'year' : model ? 'model' : 'make';
+---
+
+{pageType === 'make' && make && (
+  <Base
+    title={`${make.make_name} Complaints & Recalls`}
+    description={`View ${make.complaint_count.toLocaleString()} NHTSA complaints and recalls for ${make.make_name} vehicles. Browse ${make.model_count} models.`}
+    breadcrumbs={[{ name: 'Home', href: '/' }, { name: 'Makes', href: '/make' }, { name: make.make_name }]}
+  >
+    <div class="max-w-6xl mx-auto px-4 py-8">
+      <Breadcrumb items={[{ name: 'Home', href: '/' }, { name: 'Makes', href: '/make' }, { name: make.make_name }]} />
+
+      <h1 class="text-3xl font-bold text-[var(--color-text)] mb-2 mt-4">{make.make_name}</h1>
+      <p class="text-[var(--color-text-secondary)] mb-8">
+        {make.complaint_count.toLocaleString()} complaints across {make.model_count} models.
+      </p>
+
+      <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
+        <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-4 text-center">
+          <div class="text-2xl font-bold text-[var(--color-primary)]">{make.complaint_count.toLocaleString()}</div>
+          <div class="text-xs text-[var(--color-text-secondary)] mt-1">Complaints</div>
+        </div>
+        <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-4 text-center">
+          <div class="text-2xl font-bold text-[var(--color-primary)]">{make.model_count}</div>
+          <div class="text-xs text-[var(--color-text-secondary)] mt-1">Models</div>
+        </div>
+        <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-4 text-center">
+          <div class="text-2xl font-bold text-[var(--color-primary)]">{make.recall_count.toLocaleString()}</div>
+          <div class="text-xs text-[var(--color-text-secondary)] mt-1">Recalls</div>
+        </div>
+      </div>
+
+      <h2 class="text-xl font-bold text-[var(--color-text)] mb-4">{make.make_name} Models</h2>
+      <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg overflow-hidden">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-[var(--color-border)] bg-[var(--color-surface-alt)]">
+              <th class="text-left px-4 py-3 font-medium">Model</th>
+              <th class="text-right px-4 py-3 font-medium">Complaints</th>
+              <th class="text-right px-4 py-3 font-medium hidden sm:table-cell">Years</th>
+              <th class="text-right px-4 py-3 font-medium hidden sm:table-cell">Recalls</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-[var(--color-border)]">
+            {models.map(m => (
+              <tr class="hover:bg-[var(--color-surface-alt)] transition-colors">
+                <td class="px-4 py-3">
+                  <a href={`/make/${m.slug}`} class="font-medium text-[var(--color-primary)] hover:underline">{m.model_name}</a>
+                </td>
+                <td class="text-right px-4 py-3 text-[var(--color-text-secondary)]">{m.complaint_count.toLocaleString()}</td>
+                <td class="text-right px-4 py-3 text-[var(--color-text-secondary)] hidden sm:table-cell">{m.year_min}–{m.year_max}</td>
+                <td class="text-right px-4 py-3 text-[var(--color-text-secondary)] hidden sm:table-cell">{m.recall_count}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </Base>
+)}
+
+{pageType === 'model' && model && make && (
+  <Base
+    title={`${make.make_name} ${model.model_name} — Complaints & Recalls`}
+    description={`${model.complaint_count.toLocaleString()} NHTSA complaints for the ${make.make_name} ${model.model_name} (${model.year_min}–${model.year_max}).`}
+    breadcrumbs={[
+      { name: 'Home', href: '/' },
+      { name: 'Makes', href: '/make' },
+      { name: make.make_name, href: `/make/${make.slug}` },
+      { name: model.model_name },
+    ]}
+  >
+    <div class="max-w-6xl mx-auto px-4 py-8">
+      <Breadcrumb items={[
+        { name: 'Home', href: '/' },
+        { name: 'Makes', href: '/make' },
+        { name: make.make_name, href: `/make/${make.slug}` },
+        { name: model.model_name },
+      ]} />
+
+      <h1 class="text-3xl font-bold text-[var(--color-text)] mb-2 mt-4">
+        {make.make_name} {model.model_name}
+      </h1>
+      <p class="text-[var(--color-text-secondary)] mb-6">
+        {model.complaint_count.toLocaleString()} complaints from {model.year_min} to {model.year_max}.
+      </p>
+
+      <div class="grid grid-cols-3 gap-4 mb-8">
+        <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-4 text-center">
+          <div class="text-2xl font-bold text-[var(--color-primary)]">{model.complaint_count.toLocaleString()}</div>
+          <div class="text-xs text-[var(--color-text-secondary)]">Complaints</div>
+        </div>
+        <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-4 text-center">
+          <div class="text-2xl font-bold text-[var(--color-primary)]">{years.length}</div>
+          <div class="text-xs text-[var(--color-text-secondary)]">Model Years</div>
+        </div>
+        <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-4 text-center">
+          <div class="text-2xl font-bold text-[var(--color-primary)]">{model.recall_count}</div>
+          <div class="text-xs text-[var(--color-text-secondary)]">Recalls</div>
+        </div>
+      </div>
+
+      <h2 class="text-xl font-bold text-[var(--color-text)] mb-4">Complaints by Year</h2>
+      <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg overflow-hidden">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-[var(--color-border)] bg-[var(--color-surface-alt)]">
+              <th class="text-left px-4 py-3 font-medium">Year</th>
+              <th class="text-right px-4 py-3 font-medium">Complaints</th>
+              <th class="text-right px-4 py-3 font-medium hidden sm:table-cell">Crashes</th>
+              <th class="text-right px-4 py-3 font-medium hidden sm:table-cell">Fires</th>
+              <th class="text-right px-4 py-3 font-medium hidden sm:table-cell">Deaths</th>
+              <th class="text-right px-4 py-3 font-medium hidden md:table-cell">Rating</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-[var(--color-border)]">
+            {years.map((y: any) => (
+              <tr class="hover:bg-[var(--color-surface-alt)] transition-colors">
+                <td class="px-4 py-3">
+                  <a href={`/make/${model.slug}-${y.year}`} class="font-medium text-[var(--color-primary)] hover:underline">{y.year}</a>
+                </td>
+                <td class="text-right px-4 py-3 text-[var(--color-text-secondary)]">{y.complaint_count}</td>
+                <td class="text-right px-4 py-3 text-[var(--color-text-secondary)] hidden sm:table-cell">{y.crash_count}</td>
+                <td class="text-right px-4 py-3 text-[var(--color-text-secondary)] hidden sm:table-cell">{y.fire_count}</td>
+                <td class="text-right px-4 py-3 text-[var(--color-text-secondary)] hidden sm:table-cell">{y.death_count}</td>
+                <td class="text-right px-4 py-3 hidden md:table-cell">
+                  {y.overall_rating ? (
+                    <span class="text-[var(--color-primary)] font-medium">{y.overall_rating}/5</span>
+                  ) : (
+                    <span class="text-[var(--color-text-secondary)]">—</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </Base>
+)}
+
+{pageType === 'year' && modelYear && model && make && (
+  <Base
+    title={`${modelYear.year} ${modelYear.make_name} ${modelYear.model_name} — Complaints & Recalls`}
+    description={`${modelYear.complaint_count} NHTSA complaints for the ${modelYear.year} ${modelYear.make_name} ${modelYear.model_name}. ${modelYear.crash_count} crashes, ${modelYear.death_count} deaths reported.`}
+    breadcrumbs={[
+      { name: 'Home', href: '/' },
+      { name: 'Makes', href: '/make' },
+      { name: make.make_name, href: `/make/${make.slug}` },
+      { name: model.model_name, href: `/make/${model.slug}` },
+      { name: String(modelYear.year) },
+    ]}
+  >
+    <div class="max-w-6xl mx-auto px-4 py-8">
+      <Breadcrumb items={[
+        { name: 'Home', href: '/' },
+        { name: 'Makes', href: '/make' },
+        { name: make.make_name, href: `/make/${make.slug}` },
+        { name: model.model_name, href: `/make/${model.slug}` },
+        { name: String(modelYear.year) },
+      ]} />
+
+      <h1 class="text-3xl font-bold text-[var(--color-text)] mb-2 mt-4">
+        {modelYear.year} {modelYear.make_name} {modelYear.model_name}
+      </h1>
+      <p class="text-[var(--color-text-secondary)] mb-6">
+        {modelYear.complaint_count} complaints filed with NHTSA.
+      </p>
+
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
+        <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-4 text-center">
+          <div class="text-xl font-bold text-[var(--color-primary)]">{modelYear.complaint_count}</div>
+          <div class="text-xs text-[var(--color-text-secondary)]">Complaints</div>
+        </div>
+        <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-4 text-center">
+          <div class="text-xl font-bold text-amber-600 dark:text-amber-400">{modelYear.crash_count}</div>
+          <div class="text-xs text-[var(--color-text-secondary)]">Crashes</div>
+        </div>
+        <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-4 text-center">
+          <div class="text-xl font-bold text-amber-600 dark:text-amber-400">{modelYear.fire_count}</div>
+          <div class="text-xs text-[var(--color-text-secondary)]">Fires</div>
+        </div>
+        <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-4 text-center">
+          <div class="text-xl font-bold text-amber-600 dark:text-amber-400">{modelYear.injury_count}</div>
+          <div class="text-xs text-[var(--color-text-secondary)]">Injuries</div>
+        </div>
+        <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-4 text-center">
+          <div class="text-xl font-bold text-amber-600 dark:text-amber-400">{modelYear.death_count}</div>
+          <div class="text-xs text-[var(--color-text-secondary)]">Deaths</div>
+        </div>
+      </div>
+
+      {modelYear.overall_rating && (
+        <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-5 mb-8">
+          <h2 class="text-lg font-semibold text-[var(--color-text)] mb-3">NHTSA Safety Rating</h2>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+            <div>
+              <div class="text-3xl font-bold text-[var(--color-primary)]">{modelYear.overall_rating}<span class="text-base">/5</span></div>
+              <div class="text-xs text-[var(--color-text-secondary)]">Overall</div>
+            </div>
+            {modelYear.front_crash_rating && (
+              <div>
+                <div class="text-2xl font-bold text-[var(--color-text)]">{modelYear.front_crash_rating}/5</div>
+                <div class="text-xs text-[var(--color-text-secondary)]">Front Crash</div>
+              </div>
+            )}
+            {modelYear.side_crash_rating && (
+              <div>
+                <div class="text-2xl font-bold text-[var(--color-text)]">{modelYear.side_crash_rating}/5</div>
+                <div class="text-xs text-[var(--color-text-secondary)]">Side Crash</div>
+              </div>
+            )}
+            {modelYear.rollover_rating && (
+              <div>
+                <div class="text-2xl font-bold text-[var(--color-text)]">{modelYear.rollover_rating}/5</div>
+                <div class="text-xs text-[var(--color-text-secondary)]">Rollover</div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {stats.length > 0 && (
+        <div class="mb-8">
+          <h2 class="text-lg font-semibold text-[var(--color-text)] mb-4">Complaints by Component</h2>
+          <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg overflow-hidden">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b border-[var(--color-border)] bg-[var(--color-surface-alt)]">
+                  <th class="text-left px-4 py-3 font-medium">Component</th>
+                  <th class="text-right px-4 py-3 font-medium">Count</th>
+                  <th class="text-right px-4 py-3 font-medium hidden sm:table-cell">Crashes</th>
+                  <th class="text-right px-4 py-3 font-medium hidden sm:table-cell">Fires</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-[var(--color-border)]">
+                {stats.slice(0, 15).map((s: any) => (
+                  <tr class="hover:bg-[var(--color-surface-alt)]">
+                    <td class="px-4 py-3 text-[var(--color-text)]">{s.component}</td>
+                    <td class="text-right px-4 py-3 text-[var(--color-text-secondary)]">{s.complaint_count}</td>
+                    <td class="text-right px-4 py-3 text-[var(--color-text-secondary)] hidden sm:table-cell">{s.crash_count}</td>
+                    <td class="text-right px-4 py-3 text-[var(--color-text-secondary)] hidden sm:table-cell">{s.fire_count}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {recalls.length > 0 && (
+        <div class="mb-8">
+          <h2 class="text-lg font-semibold text-[var(--color-text)] mb-4">Recalls ({recalls.length})</h2>
+          <div class="space-y-3">
+            {recalls.map((r: any) => (
+              <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-4">
+                <div class="flex items-start justify-between mb-2">
+                  <span class="text-xs font-mono text-[var(--color-text-secondary)]">{r.campaign_number}</span>
+                  <span class="text-xs text-[var(--color-text-secondary)]">{r.report_date}</span>
+                </div>
+                <p class="text-sm text-[var(--color-text)] mb-1">{r.component}</p>
+                <p class="text-sm text-[var(--color-text-secondary)]">{r.summary?.slice(0, 300)}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {complaints.length > 0 && (
+        <div class="mb-8">
+          <h2 class="text-lg font-semibold text-[var(--color-text)] mb-4">Recent Complaints</h2>
+          <div class="space-y-3">
+            {complaints.slice(0, 20).map((c: any) => (
+              <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-4">
+                <div class="flex items-center gap-3 mb-2">
+                  <span class="text-xs text-[var(--color-text-secondary)]">{c.date_added}</span>
+                  {c.crash === 'Y' && <span class="text-xs px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded">Crash</span>}
+                  {c.fire === 'Y' && <span class="text-xs px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded">Fire</span>}
+                  {c.deaths > 0 && <span class="text-xs px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded">Fatal</span>}
+                  <span class="text-xs text-[var(--color-text-secondary)]">{c.component}</span>
+                </div>
+                <p class="text-sm text-[var(--color-text-secondary)]">{c.summary}</p>
+                {c.mileage && <p class="text-xs text-[var(--color-text-secondary)] mt-1">Mileage: {c.mileage.toLocaleString()}</p>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  </Base>
+)}

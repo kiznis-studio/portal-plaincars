@@ -1,0 +1,60 @@
+---
+export const prerender = false;
+import Base from '../layouts/Base.astro';
+import Breadcrumb from '../components/ui/Breadcrumb.astro';
+import { searchModels } from '../lib/db';
+
+const db = Astro.locals.runtime.env.DB;
+const query = Astro.url.searchParams.get('q') || '';
+const results = query.length >= 2 ? await searchModels(db, query, 30) : [];
+---
+
+<Base
+  title={query ? `Search: ${query}` : 'Search Vehicles'}
+  description="Search for any vehicle make or model to find NHTSA complaints, recalls, and safety ratings."
+  breadcrumbs={[{ name: 'Home', href: '/' }, { name: 'Search' }]}
+>
+  <div class="max-w-6xl mx-auto px-4 py-8">
+    <Breadcrumb items={[{ name: 'Home', href: '/' }, { name: 'Search' }]} />
+
+    <h1 class="text-3xl font-bold text-[var(--color-text)] mb-6 mt-4">Search Vehicles</h1>
+
+    <form action="/search" method="get" class="mb-8">
+      <div class="relative max-w-lg">
+        <input type="text" name="q" value={query} placeholder="Search by make or model..." autofocus class="w-full h-12 pl-12 pr-4 text-base rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text)] placeholder-[var(--color-text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]" />
+        <svg class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--color-text-secondary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+      </div>
+    </form>
+
+    {query && (
+      <p class="text-[var(--color-text-secondary)] mb-4">
+        {results.length > 0 ? `${results.length} results for "${query}"` : `No results for "${query}"`}
+      </p>
+    )}
+
+    {results.length > 0 && (
+      <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg overflow-hidden">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-[var(--color-border)] bg-[var(--color-surface-alt)]">
+              <th class="text-left px-4 py-3 font-medium">Vehicle</th>
+              <th class="text-right px-4 py-3 font-medium">Complaints</th>
+              <th class="text-right px-4 py-3 font-medium hidden sm:table-cell">Years</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-[var(--color-border)]">
+            {results.map((r: any) => (
+              <tr class="hover:bg-[var(--color-surface-alt)]">
+                <td class="px-4 py-3">
+                  <a href={`/make/${r.slug}`} class="font-medium text-[var(--color-primary)] hover:underline">{r.make_name} {r.model_name}</a>
+                </td>
+                <td class="text-right px-4 py-3 text-[var(--color-text-secondary)]">{r.complaint_count?.toLocaleString()}</td>
+                <td class="text-right px-4 py-3 text-[var(--color-text-secondary)] hidden sm:table-cell">{r.year_min}–{r.year_max}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
+  </div>
+</Base>

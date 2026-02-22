@@ -1,0 +1,116 @@
+---
+export const prerender = false;
+import Base from '../layouts/Base.astro';
+import { getAllMakes, getNationalStats, getMostComplainedModels } from '../lib/db';
+
+const db = Astro.locals.runtime.env.DB;
+const [makes, stats, topModels] = await Promise.all([
+  getAllMakes(db),
+  getNationalStats(db),
+  getMostComplainedModels(db, 10),
+]);
+
+const popularMakes = makes.filter(m => m.complaint_count > 5000).slice(0, 20);
+---
+
+<Base
+  title="PlainCars — Vehicle Safety, Complaints & Recalls from NHTSA"
+  description="Search NHTSA vehicle complaints, recalls, and safety ratings. Free data on every car, truck, and SUV sold in America."
+>
+  <!-- Hero -->
+  <section class="bg-gradient-to-b from-[var(--color-surface)] to-[var(--color-bg)] py-16 md:py-24">
+    <div class="max-w-6xl mx-auto px-4 text-center">
+      <h1 class="text-4xl md:text-5xl font-bold text-[var(--color-text)] mb-4">
+        Vehicle Safety Data,<br/><span class="text-[var(--color-primary)]">Made Simple</span>
+      </h1>
+      <p class="text-lg text-[var(--color-text-secondary)] max-w-2xl mx-auto mb-8">
+        Search {stats?.total_complaints?.toLocaleString()} NHTSA complaints and {stats?.total_recalls?.toLocaleString()} recalls
+        across {stats?.total_models?.toLocaleString()} vehicle models. Free, open data from the National Highway Traffic Safety Administration.
+      </p>
+      <form action="/search" method="get" class="max-w-md mx-auto">
+        <div class="relative">
+          <input type="text" name="q" placeholder="Search by make, model, or year..." class="w-full h-12 pl-12 pr-4 text-base rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-text)] placeholder-[var(--color-text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent shadow-sm" />
+          <svg class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--color-text-secondary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <!-- Stats -->
+  <section class="py-12">
+    <div class="max-w-6xl mx-auto px-4">
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-5 text-center">
+          <div class="text-2xl font-bold text-[var(--color-primary)]">{stats?.total_complaints?.toLocaleString()}</div>
+          <div class="text-xs text-[var(--color-text-secondary)] mt-1">Complaints</div>
+        </div>
+        <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-5 text-center">
+          <div class="text-2xl font-bold text-[var(--color-primary)]">{stats?.total_recalls?.toLocaleString()}</div>
+          <div class="text-xs text-[var(--color-text-secondary)] mt-1">Recalls</div>
+        </div>
+        <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-5 text-center">
+          <div class="text-2xl font-bold text-[var(--color-primary)]">{stats?.total_models?.toLocaleString()}</div>
+          <div class="text-xs text-[var(--color-text-secondary)] mt-1">Vehicle Models</div>
+        </div>
+        <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-5 text-center">
+          <div class="text-2xl font-bold text-[var(--color-primary)]">{stats?.total_makes?.toLocaleString()}</div>
+          <div class="text-xs text-[var(--color-text-secondary)] mt-1">Makes</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Most Complained Models -->
+  <section class="py-8">
+    <div class="max-w-6xl mx-auto px-4">
+      <div class="flex items-center justify-between mb-6">
+        <h2 class="text-xl font-bold text-[var(--color-text)]">Most Complained Vehicle Models</h2>
+        <a href="/rankings" class="text-sm text-[var(--color-primary)] hover:underline">View all rankings &rarr;</a>
+      </div>
+      <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg overflow-hidden">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-[var(--color-border)] bg-[var(--color-surface-alt)]">
+              <th class="text-left px-4 py-3 font-medium">#</th>
+              <th class="text-left px-4 py-3 font-medium">Vehicle</th>
+              <th class="text-right px-4 py-3 font-medium">Complaints</th>
+              <th class="text-right px-4 py-3 font-medium hidden sm:table-cell">Years</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-[var(--color-border)]">
+            {topModels.map((m: any, i: number) => (
+              <tr class="hover:bg-[var(--color-surface-alt)] transition-colors">
+                <td class="px-4 py-3 text-[var(--color-text-secondary)]">{i + 1}</td>
+                <td class="px-4 py-3">
+                  <a href={`/make/${m.slug}`} class="font-medium text-[var(--color-primary)] hover:underline">
+                    {m.make_name} {m.model_name}
+                  </a>
+                </td>
+                <td class="text-right px-4 py-3 text-[var(--color-text-secondary)]">{m.complaint_count?.toLocaleString()}</td>
+                <td class="text-right px-4 py-3 text-[var(--color-text-secondary)] hidden sm:table-cell">{m.year_min}–{m.year_max}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Popular Makes -->
+  <section class="py-8 pb-16">
+    <div class="max-w-6xl mx-auto px-4">
+      <h2 class="text-xl font-bold text-[var(--color-text)] mb-6">Browse by Make</h2>
+      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+        {popularMakes.map(m => (
+          <a href={`/make/${m.slug}`} class="flex items-center justify-between px-4 py-3 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg hover:border-[var(--color-primary)] hover:shadow-sm transition-all">
+            <span class="font-medium text-sm text-[var(--color-text)]">{m.make_name}</span>
+            <span class="text-xs text-[var(--color-text-secondary)]">{m.model_count}</span>
+          </a>
+        ))}
+      </div>
+      <div class="text-center mt-6">
+        <a href="/make" class="text-sm text-[var(--color-primary)] hover:underline">View all {makes.length} makes &rarr;</a>
+      </div>
+    </div>
+  </section>
+</Base>

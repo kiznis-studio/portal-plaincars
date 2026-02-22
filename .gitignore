@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.wrangler/
+.astro/
+data/*.db
+data/*.db-wal
+data/*.db-shm
+data/seed-*.sql
+data/seed/
+data/*.txt
+data/*.zip
