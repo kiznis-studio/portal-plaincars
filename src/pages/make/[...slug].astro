@@ -132,7 +132,7 @@ const pageType = modelYear ? 'year' : model ? 'model' : 'make';
       ]} />
 
       <h1 class="text-3xl font-bold text-[var(--color-text)] mb-2 mt-4">
-        {make.make_name} {model.model_name}
+        {`${make.make_name} ${model.model_name}`}
       </h1>
       <p class="text-[var(--color-text-secondary)] mb-6">
         {model.complaint_count.toLocaleString()} complaints from {model.year_min} to {model.year_max}.
@@ -214,7 +214,7 @@ const pageType = modelYear ? 'year' : model ? 'model' : 'make';
       ]} />
 
       <h1 class="text-3xl font-bold text-[var(--color-text)] mb-2 mt-4">
-        {modelYear.year} {modelYear.make_name} {modelYear.model_name}
+        {`${modelYear.year} ${modelYear.make_name} ${modelYear.model_name}`}
       </h1>
       <p class="text-[var(--color-text-secondary)] mb-6">
         {modelYear.complaint_count} complaints filed with NHTSA.
