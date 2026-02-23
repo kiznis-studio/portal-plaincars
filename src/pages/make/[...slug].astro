@@ -52,6 +52,42 @@ if (make) {
 if (!make && !model && !modelYear) return Astro.redirect('/404');
 
 const pageType = modelYear ? 'year' : model ? 'model' : 'make';
+
+// FAQ generation
+const faqItems: { q: string; a: string }[] = [];
+
+if (pageType === 'make' && make) {
+  faqItems.push(
+    { q: `How many complaints has ${make.make_name} received?`, a: `${make.make_name} has received ${make.complaint_count.toLocaleString()} NHTSA complaints across ${make.model_count} models and ${make.recall_count.toLocaleString()} safety recalls.` },
+    { q: `Is ${make.make_name} reliable?`, a: `${make.make_name} has ${make.complaint_count.toLocaleString()} total NHTSA complaints across all models. Review individual models and model years for more specific reliability data.` },
+  );
+} else if (pageType === 'model' && model && make) {
+  faqItems.push(
+    { q: `How reliable is the ${make.make_name} ${model.model_name}?`, a: `The ${make.make_name} ${model.model_name} has received ${model.complaint_count.toLocaleString()} NHTSA complaints spanning model years ${model.year_min} to ${model.year_max}, with ${model.recall_count} recalls.` },
+    { q: `What years of ${make.make_name} ${model.model_name} are available?`, a: `PlainCars has complaint and recall data for the ${make.make_name} ${model.model_name} from ${model.year_min} to ${model.year_max} (${years.length} model years).` },
+  );
+} else if (pageType === 'year' && modelYear) {
+  const fullName = `${modelYear.year} ${modelYear.make_name} ${modelYear.model_name}`;
+  faqItems.push(
+    { q: `How many complaints does the ${fullName} have?`, a: `The ${fullName} has ${modelYear.complaint_count} NHTSA complaints, ${modelYear.crash_count} crashes, ${modelYear.fire_count} fires, ${modelYear.injury_count} injuries, and ${modelYear.death_count} deaths reported.` },
+  );
+  if (modelYear.overall_rating) {
+    faqItems.push({ q: `What is the safety rating for the ${fullName}?`, a: `The ${fullName} received an overall NHTSA safety rating of ${modelYear.overall_rating}/5${modelYear.front_crash_rating ? `, front crash rating of ${modelYear.front_crash_rating}/5` : ''}${modelYear.side_crash_rating ? `, side crash rating of ${modelYear.side_crash_rating}/5` : ''}${modelYear.rollover_rating ? `, and rollover rating of ${modelYear.rollover_rating}/5` : ''}.` });
+  }
+  if (recalls.length > 0) {
+    faqItems.push({ q: `Are there any recalls for the ${fullName}?`, a: `Yes, the ${fullName} has ${recalls.length} recall(s). The most common affected component is ${recalls[0]?.component || 'various components'}.` });
+  }
+}
+
+const faqSchema = faqItems.length > 0 ? JSON.stringify({
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: faqItems.map(f => ({
+    '@type': 'Question',
+    name: f.q,
+    acceptedAnswer: { '@type': 'Answer', text: f.a },
+  })),
+}) : null;
 ---
 
 {pageType === 'make' && make && (
@@ -64,8 +100,8 @@ const pageType = modelYear ? 'year' : model ? 'model' : 'make';
       <Breadcrumb items={[{ name: 'Home', href: '/' }, { name: 'Makes', href: '/make' }, { name: make.make_name }]} />
 
       <h1 class="text-3xl font-bold text-[var(--color-text)] mb-2 mt-4">{make.make_name}</h1>
-      <p class="text-[var(--color-text-secondary)] mb-8">
-        {make.complaint_count.toLocaleString()} complaints across {make.model_count} models.
+      <p class="text-[var(--color-text-secondary)] mb-8 leading-relaxed">
+        <strong>{make.make_name}</strong> has received <strong>{make.complaint_count.toLocaleString()} NHTSA complaints</strong> across {make.model_count} models and <strong>{make.recall_count.toLocaleString()} safety recalls</strong>. Browse individual models below to see complaint trends, crash data, and recall history by year.
       </p>
 
       <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
@@ -108,7 +144,24 @@ const pageType = modelYear ? 'year' : model ? 'model' : 'make';
           </tbody>
         </table>
       </div>
+
+      {faqItems.length > 0 && (
+        <section class="mb-8">
+          <h2 class="text-lg font-semibold text-[var(--color-text)] mb-4">Frequently Asked Questions</h2>
+          <div class="space-y-3">
+            {faqItems.map(f => (
+              <details class="group bg-[var(--color-surface)] rounded-lg border border-[var(--color-border)]">
+                <summary class="flex items-center justify-between p-4 cursor-pointer font-medium text-[var(--color-text)]">{f.q}<span class="ml-2 text-[var(--color-text-secondary)] group-open:rotate-180 transition-transform">▼</span></summary>
+                <div class="px-4 pb-4 text-[var(--color-text-secondary)] text-sm">{f.a}</div>
+              </details>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <p class="text-xs text-[var(--color-text-secondary)]">Source: National Highway Traffic Safety Administration (NHTSA) complaints and recalls data.</p>
     </div>
+    {faqSchema && <script type="application/ld+json" set:html={faqSchema} />}
   </Base>
 )}
 
@@ -134,8 +187,8 @@ const pageType = modelYear ? 'year' : model ? 'model' : 'make';
       <h1 class="text-3xl font-bold text-[var(--color-text)] mb-2 mt-4">
         {`${make.make_name} ${model.model_name}`}
       </h1>
-      <p class="text-[var(--color-text-secondary)] mb-6">
-        {model.complaint_count.toLocaleString()} complaints from {model.year_min} to {model.year_max}.
+      <p class="text-[var(--color-text-secondary)] mb-6 leading-relaxed">
+        The <strong>{make.make_name} {model.model_name}</strong> has <strong>{model.complaint_count.toLocaleString()} NHTSA complaints</strong> spanning model years {model.year_min} to {model.year_max}, with <strong>{model.recall_count} safety recalls</strong>. Select a year below to see detailed complaint descriptions, crash data, and safety ratings.
       </p>
 
       <div class="grid grid-cols-3 gap-4 mb-8">
@@ -188,7 +241,24 @@ const pageType = modelYear ? 'year' : model ? 'model' : 'make';
           </tbody>
         </table>
       </div>
+
+      {faqItems.length > 0 && (
+        <section class="mb-8">
+          <h2 class="text-lg font-semibold text-[var(--color-text)] mb-4">Frequently Asked Questions</h2>
+          <div class="space-y-3">
+            {faqItems.map(f => (
+              <details class="group bg-[var(--color-surface)] rounded-lg border border-[var(--color-border)]">
+                <summary class="flex items-center justify-between p-4 cursor-pointer font-medium text-[var(--color-text)]">{f.q}<span class="ml-2 text-[var(--color-text-secondary)] group-open:rotate-180 transition-transform">▼</span></summary>
+                <div class="px-4 pb-4 text-[var(--color-text-secondary)] text-sm">{f.a}</div>
+              </details>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <p class="text-xs text-[var(--color-text-secondary)]">Source: National Highway Traffic Safety Administration (NHTSA) complaints and recalls data.</p>
     </div>
+    {faqSchema && <script type="application/ld+json" set:html={faqSchema} />}
   </Base>
 )}
 
@@ -216,8 +286,10 @@ const pageType = modelYear ? 'year' : model ? 'model' : 'make';
       <h1 class="text-3xl font-bold text-[var(--color-text)] mb-2 mt-4">
         {`${modelYear.year} ${modelYear.make_name} ${modelYear.model_name}`}
       </h1>
-      <p class="text-[var(--color-text-secondary)] mb-6">
-        {modelYear.complaint_count} complaints filed with NHTSA.
+      <p class="text-[var(--color-text-secondary)] mb-6 leading-relaxed">
+        The <strong>{modelYear.year} {modelYear.make_name} {modelYear.model_name}</strong> has <strong>{modelYear.complaint_count} NHTSA complaints</strong>{modelYear.crash_count > 0 ? `, including ${modelYear.crash_count} crashes` : ''}{modelYear.death_count > 0 ? ` and ${modelYear.death_count} reported deaths` : ''}.
+        {modelYear.overall_rating ? ` It received an overall safety rating of ${modelYear.overall_rating}/5 from NHTSA.` : ''}
+        {recalls.length > 0 ? ` There are ${recalls.length} active recall(s) for this vehicle.` : ''}
       </p>
 
       <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
@@ -339,6 +411,23 @@ const pageType = modelYear ? 'year' : model ? 'model' : 'make';
           </div>
         </div>
       )}
+
+      {faqItems.length > 0 && (
+        <section class="mb-8">
+          <h2 class="text-lg font-semibold text-[var(--color-text)] mb-4">Frequently Asked Questions</h2>
+          <div class="space-y-3">
+            {faqItems.map(f => (
+              <details class="group bg-[var(--color-surface)] rounded-lg border border-[var(--color-border)]">
+                <summary class="flex items-center justify-between p-4 cursor-pointer font-medium text-[var(--color-text)]">{f.q}<span class="ml-2 text-[var(--color-text-secondary)] group-open:rotate-180 transition-transform">▼</span></summary>
+                <div class="px-4 pb-4 text-[var(--color-text-secondary)] text-sm">{f.a}</div>
+              </details>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <p class="text-xs text-[var(--color-text-secondary)]">Source: National Highway Traffic Safety Administration (NHTSA) complaints and recalls data.</p>
     </div>
+    {faqSchema && <script type="application/ld+json" set:html={faqSchema} />}
   </Base>
 )}
