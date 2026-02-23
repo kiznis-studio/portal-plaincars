@@ -11,6 +11,28 @@ const [makes, stats, topModels] = await Promise.all([
 ]);
 
 const popularMakes = makes.filter(m => m.complaint_count > 5000).slice(0, 20);
+
+const datasetSchema = {
+  "@context": "https://schema.org",
+  "@type": "Dataset",
+  "name": "U.S. Vehicle Safety Ratings, Complaints, and Recalls",
+  "description": "NHTSA data covering 70 makes, 3,500+ models, 454,000+ consumer complaints, 37,500+ recalls, and 3,500+ safety ratings.",
+  "url": "https://plaincars.com",
+  "keywords": ["car safety ratings", "NHTSA", "vehicle recalls", "car complaints", "US auto safety"],
+  "creator": {
+    "@type": "Organization",
+    "name": "PlainCars"
+  },
+  "spatialCoverage": "United States",
+  "temporalCoverage": "2000/2025",
+  "license": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "isAccessibleForFree": true,
+  "distribution": {
+    "@type": "DataDownload",
+    "encodingFormat": "text/html",
+    "contentUrl": "https://plaincars.com"
+  }
+};
 ---
 
 <Base
@@ -113,4 +135,6 @@ const popularMakes = makes.filter(m => m.complaint_count > 5000).slice(0, 20);
       </div>
     </div>
   </section>
+
+  <script type="application/ld+json" set:html={JSON.stringify(datasetSchema)} />
 </Base>
