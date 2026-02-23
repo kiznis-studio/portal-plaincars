@@ -1,0 +1,22 @@
+---
+interface Props {
+  slot: 'top' | 'mid' | 'bottom';
+}
+const { slot } = Astro.props;
+const adClient = import.meta.env.PUBLIC_ADSENSE_CLIENT;
+---
+
+{adClient && (
+  <div class={`ad-slot ad-slot-${slot} my-6`} style="min-height:90px;">
+    <ins class="adsbygoogle"
+      style="display:block"
+      data-ad-client={adClient}
+      data-ad-slot=""
+      data-ad-format="auto"
+      data-full-width-responsive="true"
+    ></ins>
+    <script is:inline>
+      (adsbygoogle = window.adsbygoogle || []).push({});
+    </script>
+  </div>
+)}
