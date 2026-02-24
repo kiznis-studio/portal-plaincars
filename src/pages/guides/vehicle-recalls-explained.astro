@@ -1,0 +1,200 @@
+---
+export const prerender = true;
+import Base from '../../layouts/Base.astro';
+import Breadcrumb from '../../components/ui/Breadcrumb.astro';
+
+const title = 'Vehicle Recalls Explained: What Every Car Owner Needs to Know';
+const description = 'What triggers a vehicle recall, how to check if your car is affected, what the free remedy process looks like, and the most common recall categories from NHTSA data.';
+
+const faqSchema = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "How do I check if my car has an open recall?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Enter your 17-character VIN at safercar.gov/recalls or use the NHTSA VIN lookup tool. You can also check PlainCars recall pages by make and model. Dealers are also required to check recall status before performing any warranty or service work."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is a recall repair really free?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. Under federal law, all recall repairs must be performed at no cost to the vehicle owner. This applies regardless of whether the vehicle is still under the original manufacturer warranty. If a dealer attempts to charge you for a recall repair, contact NHTSA."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is the difference between a voluntary and an ordered recall?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "A voluntary recall is initiated by the manufacturer after it identifies a defect through warranty claims, field reports, or internal testing. An ordered recall follows an NHTSA investigation where the agency determines a safety defect exists and the manufacturer refuses to act voluntarily. Most recalls (roughly 80%) are voluntary."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Do I have to comply with a recall?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No federal law requires owners to complete recall repairs. However, ignoring a safety recall can increase your risk of injury and may affect your insurance coverage or liability in an accident involving the recalled defect. If you sell a vehicle with an open recall, disclose it to the buyer."
+      }
+    }
+  ]
+};
+---
+
+<Base title={title} description={description}
+  breadcrumbs={[{ name: 'Home', href: '/' }, { name: 'Guides', href: '/guides' }, { name: 'Vehicle Recalls Explained' }]}
+>
+  <div class="max-w-3xl mx-auto px-4 py-8">
+    <Breadcrumb items={[
+      { name: 'Guides', href: '/guides' },
+      { name: 'Vehicle Recalls Explained' },
+    ]} />
+
+    <header class="mb-8">
+      <h1 class="text-3xl md:text-4xl font-bold text-gray-900 dark:text-gray-100">Vehicle Recalls Explained: What Every Car Owner Needs to Know</h1>
+      <p class="text-lg text-gray-500 dark:text-gray-400 mt-2">From what triggers a recall to getting your free fix — everything you need to understand the process.</p>
+    </header>
+
+    <div class="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-xl p-6 mb-10">
+      <div class="text-sm font-bold uppercase tracking-wider text-blue-700 dark:text-blue-400 mb-2">Key Takeaway</div>
+      <p class="text-gray-700 dark:text-gray-300">There are over 37,000 vehicle recalls in the NHTSA database, and at any given time, tens of millions of vehicles on American roads have at least one open recall. Recall repairs are always free by law. Checking your VIN takes under a minute and could prevent a serious accident.</p>
+    </div>
+
+    <div class="prose prose-gray dark:prose-invert max-w-none">
+      <h2>What Is a Vehicle Recall?</h2>
+      <p>
+        A vehicle recall is an official notification that a vehicle — or a piece of vehicle equipment — has a safety defect or does not meet federal safety standards. The manufacturer is required to contact all registered owners and provide a free remedy: a repair, replacement part, or in rare cases a full vehicle repurchase.
+      </p>
+      <p>
+        Recalls are governed by the National Traffic and Motor Vehicle Safety Act and administered by NHTSA. They can cover cars, trucks, motorcycles, buses, trailers, and vehicle-mounted equipment including tires, child safety seats, and brake fluid. The scope of a recall can range from a handful of vehicles from a limited production batch to tens of millions of vehicles globally — as seen with the Takata airbag recall, which affected over 67 million vehicles across dozens of manufacturers.
+      </p>
+      <p>
+        You can search all open and historical recalls by vehicle make on our <a href="/makes/">make pages</a> or use the <a href="/recalls/">recall search</a> to find recalls by keyword or component.
+      </p>
+
+      <h2>What Triggers a Recall</h2>
+      <p>
+        Recalls can be initiated in two ways: voluntarily by the manufacturer, or by order from NHTSA after a formal investigation.
+      </p>
+      <p>
+        <strong>Voluntary recalls (most common).</strong> Manufacturers continuously monitor their own warranty claims, field service reports, customer complaints, and internal quality data. When an engineer or quality team identifies a pattern suggesting a systemic safety defect — a batch of wiring harnesses from a specific supplier, a tolerance issue in a brake component — the manufacturer typically initiates a recall voluntarily. Roughly 80% of all recalls are voluntary. Acting voluntarily is faster, cheaper to administer, and better for the manufacturer's reputation than waiting for NHTSA to compel action.
+      </p>
+      <p>
+        <strong>NHTSA-ordered recalls.</strong> When a manufacturer believes a problem does not constitute a safety defect, or disputes NHTSA's findings, NHTSA can order a recall after completing a formal Engineering Analysis. This process can take months and sometimes involves public hearings. NHTSA's ultimate authority is rarely invoked but serves as the backstop when manufacturers resist voluntary action.
+      </p>
+      <p>
+        Complaint data plays a direct role. The <a href="/guides/understanding-nhtsa-complaints">complaints filed by owners</a> in the NHTSA database feed the statistical models that ODI analysts use to identify emerging safety patterns. A surge in brake complaints on a specific model year can be what opens a Preliminary Evaluation that ultimately leads to a recall.
+      </p>
+
+      <h2>How to Check if Your Vehicle Has Open Recalls</h2>
+      <p>
+        NHTSA provides a free VIN-based recall lookup tool. Here are all the ways to check:
+      </p>
+      <ul>
+        <li><strong>NHTSA VIN lookup:</strong> Visit <strong>safercar.gov/recalls</strong> and enter your 17-character VIN. The tool returns all open recalls tied to your specific vehicle.</li>
+        <li><strong>PlainCars:</strong> Browse recalls by make and model on our <a href="/makes/">make pages</a> or search by component category on our <a href="/recalls/">recalls page</a>.</li>
+        <li><strong>Your dealer:</strong> Any franchised dealer is required to check recall status before performing warranty or service work. Ask them to run a VIN check at every service visit.</li>
+        <li><strong>Manufacturer websites:</strong> Most manufacturers offer VIN-based recall lookup on their own sites, which may update faster than NHTSA's system for newly announced recalls.</li>
+        <li><strong>NHTSA hotline:</strong> Call 1-888-327-4236 and provide your VIN for a phone-based lookup.</li>
+      </ul>
+      <p>
+        Where is your VIN? Look on the driver's side dashboard (visible through the windshield), the driver's door jamb sticker, your vehicle registration, or your insurance card.
+      </p>
+
+      <h2>The Recall Remedy Process</h2>
+      <p>
+        Once a recall is announced, the manufacturer is legally required to notify all registered owners within 60 days. Here's how the process typically works:
+      </p>
+      <p>
+        <strong>Notification.</strong> NHTSA publishes the recall details publicly. The manufacturer sends first-class mail notices to all registered owners. If you've moved or bought the vehicle used and the registration isn't updated, you may not receive a notice — which is why proactively checking your VIN matters.
+      </p>
+      <p>
+        <strong>Parts availability.</strong> Not all recalls can be remedied immediately. If the defect requires a redesigned component, the manufacturer may announce the recall before a remedy is available. In these cases, you'll receive an initial notice followed by a second notice when parts are ready. For high-volume recalls, dealers may triage based on severity — vehicles with the most urgent safety risk may be prioritized.
+      </p>
+      <p>
+        <strong>Scheduling the repair.</strong> Contact any authorized dealer for the brand to schedule your recall repair. You do not have to use the dealer where you purchased the vehicle. The repair is free regardless of mileage, age, or whether you're the original owner.
+      </p>
+      <p>
+        <strong>Timeline.</strong> Simple repairs may take under an hour. More complex recalls — replacing an airbag inflator, for example — can take a full day. Dealers are required to provide a loaner vehicle or transportation assistance for repairs requiring extended time, though policies vary.
+      </p>
+      <p>
+        <strong>Reimbursement for prior repairs.</strong> If you paid for a repair out of pocket before a recall was announced, and the recall covers the same defect, you may be entitled to reimbursement. Submit your repair receipts to the manufacturer as soon as possible — reimbursement windows have deadlines.
+      </p>
+
+      <h2>Most Common Recall Categories</h2>
+      <p>
+        Based on NHTSA's historical recall data, these component categories account for the largest share of vehicle recalls:
+      </p>
+      <p>
+        <strong>Airbags.</strong> The Takata airbag crisis made this category notorious, but airbag recalls continue beyond Takata. Issues include inflators that rupture and send metal fragments toward occupants, modules that deploy without warning, and sensors that fail to deploy during a crash.
+      </p>
+      <p>
+        <strong>Brakes.</strong> Brake system recalls cover master cylinders that fail under pressure, brake lines prone to corrosion, anti-lock brake system (ABS) module failures, and caliper issues that cause uneven braking. Brake recalls are disproportionately associated with crash injuries given the direct safety consequence of brake failure at speed.
+      </p>
+      <p>
+        <strong>Fuel system.</strong> Fuel system recalls involve fuel tank integrity, fuel pump failures, fuel line leaks, and fire risk from fuel that contacts hot surfaces. Vehicles that stall unexpectedly due to fuel delivery failures are also captured here.
+      </p>
+      <p>
+        <strong>Electrical systems.</strong> Wiring harness defects, short circuits, and software defects have grown as a recall category as vehicles incorporate more electronics. Battery management issues in hybrid and electric vehicles are an emerging sub-category.
+      </p>
+      <p>
+        <strong>Steering.</strong> Power steering component failures, steering gear defects, and loss of power-assisted steering are serious recalls because steering loss at highway speeds gives drivers very little recovery time.
+      </p>
+      <p>
+        <strong>Seats and restraints.</strong> Seat belt pretensioner failures, seat track defects that allow seats to move during collisions, and child safety seat mounting issues fall into this category.
+      </p>
+      <p>
+        Browse recalls by component type on our <a href="/recalls/">recalls search page</a>, or check recall history for any specific vehicle on our <a href="/makes/">make and model pages</a>.
+      </p>
+
+      <h2>Buying a Used Car with Open Recalls</h2>
+      <p>
+        Before purchasing any used vehicle, check its VIN for open recalls. A vehicle with an unresolved recall can be purchased legally (dealers are not required to complete recall repairs before selling used vehicles, though federal rules prohibit rental car companies and dealers from renting or selling recalled vehicles without remedy). However, as the new owner, the burden of scheduling and tracking the repair falls on you.
+      </p>
+      <p>
+        Use an open recall as a negotiating point. If a recall repair will take the vehicle out of service for an extended period or requires parts with a long wait, that's a real cost. Factor it in.
+      </p>
+      <p>
+        After purchase, update your registration and contact information with your state DMV to ensure you receive future recall notices.
+      </p>
+
+      <h2>Frequently Asked Questions</h2>
+
+      <details class="group">
+        <summary class="cursor-pointer font-semibold text-gray-900 dark:text-gray-100">How do I check if my car has an open recall?</summary>
+        <p>Enter your 17-character VIN at safercar.gov/recalls or use the NHTSA VIN lookup tool. You can also check PlainCars recall pages by make and model. Dealers are also required to check recall status before performing any warranty or service work.</p>
+      </details>
+
+      <details class="group">
+        <summary class="cursor-pointer font-semibold text-gray-900 dark:text-gray-100">Is a recall repair really free?</summary>
+        <p>Yes. Under federal law, all recall repairs must be performed at no cost to the vehicle owner. This applies regardless of whether the vehicle is still under the original manufacturer warranty. If a dealer attempts to charge you for a recall repair, contact NHTSA.</p>
+      </details>
+
+      <details class="group">
+        <summary class="cursor-pointer font-semibold text-gray-900 dark:text-gray-100">What is the difference between a voluntary and an ordered recall?</summary>
+        <p>A voluntary recall is initiated by the manufacturer after it identifies a defect through warranty claims, field reports, or internal testing. An ordered recall follows an NHTSA investigation where the agency determines a safety defect exists and the manufacturer refuses to act voluntarily. Most recalls (roughly 80%) are voluntary.</p>
+      </details>
+
+      <details class="group">
+        <summary class="cursor-pointer font-semibold text-gray-900 dark:text-gray-100">Do I have to comply with a recall?</summary>
+        <p>No federal law requires owners to complete recall repairs. However, ignoring a safety recall can increase your risk of injury and may affect your insurance coverage or liability in an accident involving the recalled defect. If you sell a vehicle with an open recall, disclose it to the buyer.</p>
+      </details>
+    </div>
+
+    <div class="mt-12 pt-6 border-t border-gray-200 dark:border-gray-700">
+      <p class="text-sm text-gray-500 dark:text-gray-400">
+        <strong>Sources:</strong> National Highway Traffic Safety Administration, <a href="https://www.nhtsa.gov/recalls" class="text-blue-600 dark:text-blue-400 hover:underline" target="_blank" rel="noopener noreferrer">NHTSA Recalls Database</a>; National Traffic and Motor Vehicle Safety Act; NHTSA Office of Defects Investigation.
+      </p>
+      <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">
+        <strong>Last updated:</strong> February 2026
+      </p>
+    </div>
+  </div>
+
+  <script type="application/ld+json" set:html={JSON.stringify(faqSchema)} />
+</Base>

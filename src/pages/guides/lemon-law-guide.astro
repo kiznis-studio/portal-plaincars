@@ -1,0 +1,201 @@
+---
+export const prerender = true;
+import Base from '../../layouts/Base.astro';
+import Breadcrumb from '../../components/ui/Breadcrumb.astro';
+
+const title = 'Lemon Law Guide: Your Rights When You Buy a Defective Vehicle';
+const description = 'Everything you need to know about federal and state lemon laws — what qualifies as a lemon, how to document your case, the steps to take, and how NHTSA complaint data supports your claim.';
+
+const faqSchema = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What is a lemon law?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Lemon laws are consumer protection statutes that entitle buyers of defective vehicles to a repair, replacement, or refund if the manufacturer cannot fix a substantial defect within a reasonable number of attempts. All 50 states plus Washington D.C. have some form of lemon law, and the federal Magnuson-Moss Warranty Act provides an additional layer of protection."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How many repair attempts qualify a car as a lemon?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "This varies by state, but common thresholds are 3–4 repair attempts for the same defect, or the vehicle being out of service for 30 or more cumulative days during the warranty period. Some states have a single-attempt standard for safety-related defects. Check your state's specific lemon law for the exact threshold."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does lemon law apply to used cars?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Most state lemon laws apply only to new vehicles purchased with a manufacturer's warranty. However, some states extend coverage to used vehicles still under the original manufacturer's warranty, and a few have specific used-car lemon laws. The federal Magnuson-Moss Warranty Act can apply to used vehicles if the seller provided a written warranty."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can NHTSA complaint data help my lemon law case?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. NHTSA complaint data can demonstrate that your defect is part of a known pattern affecting other vehicles — strengthening the argument that it is a systemic defect, not a one-off issue. If NHTSA has opened an investigation or issued a recall for the same problem, that is strong supporting evidence. Print and attach relevant complaints and investigation documents to your lemon law demand letter."
+      }
+    }
+  ]
+};
+---
+
+<Base title={title} description={description}
+  breadcrumbs={[{ name: 'Home', href: '/' }, { name: 'Guides', href: '/guides' }, { name: 'Lemon Law Guide' }]}
+>
+  <div class="max-w-3xl mx-auto px-4 py-8">
+    <Breadcrumb items={[
+      { name: 'Guides', href: '/guides' },
+      { name: 'Lemon Law Guide' },
+    ]} />
+
+    <header class="mb-8">
+      <h1 class="text-3xl md:text-4xl font-bold text-gray-900 dark:text-gray-100">Lemon Law Guide: Your Rights When You Buy a Defective Vehicle</h1>
+      <p class="text-lg text-gray-500 dark:text-gray-400 mt-2">What lemon laws cover, how to qualify, and how to use NHTSA data to build a stronger case.</p>
+    </header>
+
+    <div class="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-xl p-6 mb-10">
+      <div class="text-sm font-bold uppercase tracking-wider text-blue-700 dark:text-blue-400 mb-2">Key Takeaway</div>
+      <p class="text-gray-700 dark:text-gray-300">Every U.S. state has a lemon law, and the federal Magnuson-Moss Warranty Act provides a parallel remedy. If a manufacturer cannot fix a substantial defect in your new vehicle after a reasonable number of attempts, you may be entitled to a full replacement or refund. Documentation is everything — start a repair log from day one.</p>
+    </div>
+
+    <div class="prose prose-gray dark:prose-invert max-w-none">
+      <h2>What Is a Lemon Law?</h2>
+      <p>
+        Lemon laws are state consumer protection statutes designed to provide relief when a new vehicle has a substantial defect that the manufacturer cannot fix after a reasonable number of repair attempts. The term "lemon" is colloquial — no statute uses it — but the concept is consistent: if your new car keeps breaking down in the same way and the dealer can't fix it, the law provides a path to a replacement vehicle or a refund.
+      </p>
+      <p>
+        All 50 states and Washington D.C. have some version of a lemon law, though the specifics vary significantly. California's lemon law (Song-Beverly Consumer Warranty Act) is often cited as the strongest in the country; other states offer narrower protections. On top of state laws, the federal Magnuson-Moss Warranty Act (15 U.S.C. § 2301 et seq.) provides a federal cause of action against manufacturers who breach written warranties — including an entitlement to attorney's fees if you prevail, which matters enormously when taking on a major automaker.
+      </p>
+
+      <h2>Federal vs. State Lemon Laws</h2>
+      <p>
+        Understanding the difference between your federal and state remedies helps you choose the most effective path.
+      </p>
+      <p>
+        <strong>State lemon laws.</strong> State laws define qualifying defects, the number of repair attempts required, the warranty period during which the defect must arise, and the remedy (replacement or refund). Most apply only to new vehicles purchased or leased with a manufacturer's warranty, though a few states extend coverage. Arbitration is usually a required first step — many states mandate that you go through the manufacturer's arbitration program before suing. State lemon laws apply regardless of whether the vehicle was purchased for personal or commercial use, though some states have mileage or commercial use exclusions.
+      </p>
+      <p>
+        <strong>Federal Magnuson-Moss Warranty Act.</strong> This federal law applies whenever a manufacturer provides a written warranty. Unlike state laws, it can apply to used vehicles if the seller provided a written warranty. Magnuson-Moss allows you to sue in federal court if your state remedies are insufficient. Critically, it authorizes the court to award attorney's fees to a prevailing plaintiff — which makes it economically viable for attorneys to take lemon law cases on contingency. Many lemon law cases are filed under both state law and Magnuson-Moss simultaneously.
+      </p>
+
+      <h2>What Qualifies as a "Lemon"</h2>
+      <p>
+        The qualifying criteria vary by state, but most laws share a similar structure:
+      </p>
+      <p>
+        <strong>Substantial defect.</strong> The defect must substantially impair the use, value, or safety of the vehicle. A minor annoyance (a squeaky cupholder, an infotainment glitch) generally does not qualify. A recurring transmission failure, brake problem, or engine stall on a highway does. Some states define safety defects separately with lower repair-attempt thresholds.
+      </p>
+      <p>
+        <strong>Reasonable number of repair attempts.</strong> The manufacturer (through its authorized dealers) must have had a reasonable opportunity to fix the defect and failed. Most states set this at 3–4 repair attempts for the same defect. For safety-related defects, some states require only 1–2 attempts. California, for instance, creates a presumption that a vehicle is a lemon after two repair attempts for a defect that is likely to cause death or serious bodily injury.
+      </p>
+      <p>
+        <strong>Out-of-service days.</strong> Many state lemon laws also qualify a vehicle if it has been out of service for a cumulative total of 30 days (some states use different thresholds) during the warranty period due to defect-related repairs, regardless of how many separate repair attempts occurred.
+      </p>
+      <p>
+        <strong>During the warranty period.</strong> The defect must manifest during the original manufacturer's warranty period. If you're driving a 10-year-old vehicle with 180,000 miles and a defect emerges, lemon law doesn't apply — but you may have other remedies depending on the nature of the defect and any active warranties.
+      </p>
+      <p>
+        <strong>New vehicles only (with exceptions).</strong> Most state lemon laws apply to new vehicles. Used vehicles are generally not covered unless they are still within the original manufacturer's warranty period and some states specifically extend coverage to certified pre-owned or other warranted used vehicles.
+      </p>
+
+      <h2>Steps to Take If You Suspect You Have a Lemon</h2>
+      <p>
+        Start building your paper trail from the first day you experience a problem. Cases are won and lost on documentation.
+      </p>
+      <p>
+        <strong>Step 1 — Document everything, immediately.</strong> Keep a log with the date, mileage, description of the problem, and how it manifested. Note weather conditions, speed, and any warning lights. Take photos and videos when possible. This contemporaneous record is far more credible than reconstructing events from memory months later.
+      </p>
+      <p>
+        <strong>Step 2 — Use authorized dealers only.</strong> Lemon law claims require that the manufacturer (via its authorized dealer network) has had a chance to repair the defect. Independent mechanics or third-party shops don't count toward the repair attempt threshold in most states. Always take the vehicle to an authorized dealer and get written repair orders for every visit.
+      </p>
+      <p>
+        <strong>Step 3 — Keep all repair orders.</strong> Every dealer visit should produce a written repair order showing the date, mileage, your description of the complaint, what the dealer found (or didn't find), what work was done, and how many days the vehicle was in their possession. Do not leave a dealer visit without a signed copy of the repair order. These documents are the foundation of your claim.
+      </p>
+      <p>
+        <strong>Step 4 — Put complaints in writing.</strong> In addition to verbal reports, send the manufacturer a written notice of the defect. Some state lemon laws require written notice before you can pursue a claim. A certified letter to the manufacturer's customer relations department, citing the specific defect and the repair attempts to date, creates a record and demonstrates you gave them adequate notice.
+      </p>
+      <p>
+        <strong>Step 5 — Research NHTSA complaint and recall data.</strong> Search NHTSA's database (or PlainCars) for complaints matching your defect on the same model and model year. If other owners have reported the same problem — especially if NHTSA has opened an investigation or issued a recall — that establishes your defect is not a one-off but a systemic issue. Print and preserve this evidence.
+      </p>
+      <p>
+        <strong>Step 6 — Notify the manufacturer formally.</strong> Once you've exceeded your state's repair attempt threshold, send a formal demand letter to the manufacturer (not just the dealer) requesting a replacement or refund under your state's lemon law and/or Magnuson-Moss. Reference your state's specific statute, list all repair attempts with dates and repair order numbers, and specify a reasonable response deadline (10–14 business days is typical).
+      </p>
+      <p>
+        <strong>Step 7 — Arbitration (if required).</strong> Many state lemon laws require going through the manufacturer's arbitration program before you can sue. The Better Business Bureau Auto Line and manufacturer-sponsored programs are common. Keep in mind that these programs are funded by manufacturers — their decisions are not always consumer-favorable — but a negative arbitration decision does not bar you from pursuing a court claim in many states.
+      </p>
+      <p>
+        <strong>Step 8 — Consult a lemon law attorney.</strong> Lemon law attorneys typically work on contingency — no upfront cost to you — because Magnuson-Moss and many state laws entitle them to recover fees from the manufacturer if you win. Many offer free consultations. Consult one before filing suit, even if you plan to represent yourself.
+      </p>
+
+      <h2>How NHTSA Complaint Data Supports Lemon Law Claims</h2>
+      <p>
+        NHTSA complaint data is public, searchable, and admissible evidence. It can materially strengthen a lemon law case in several ways:
+      </p>
+      <p>
+        <strong>Establishing a known pattern.</strong> If your defect appears in dozens or hundreds of other owners' complaints filed with NHTSA, it demonstrates the defect is systemic — not something unique to your vehicle due to misuse or bad luck. Manufacturers sometimes argue that a recurring defect in a single vehicle is the result of owner behavior; widespread complaint data counters that argument.
+      </p>
+      <p>
+        <strong>Showing manufacturer awareness.</strong> If NHTSA has opened a Preliminary Evaluation or Engineering Analysis on the defect, or the defect matches the subject of a Technical Service Bulletin (TSB), it demonstrates the manufacturer was aware of the problem. Awareness without action is a stronger basis for a lemon law or warranty claim than a manufacturer who claims ignorance.
+      </p>
+      <p>
+        <strong>Supporting safety defect characterization.</strong> If you're arguing your defect qualifies for the lower repair-attempt threshold under a safety defect clause, NHTSA complaints showing similar defects caused crashes or injuries in other vehicles establishes the safety relevance of your problem.
+      </p>
+      <p>
+        To pull complaint data for your vehicle, look up the make and model on our <a href="/makes/">make pages</a> and filter by model year. For recall history on your specific vehicle, use our <a href="/recalls/">recalls search</a>.
+      </p>
+
+      <h2>What Remedies You Can Expect</h2>
+      <p>
+        If your lemon law claim is successful, the manufacturer typically must provide one of the following:
+      </p>
+      <ul>
+        <li><strong>Replacement vehicle.</strong> A new vehicle of the same or comparable model year, make, and specifications. The manufacturer may deduct an "offset" for use — the value of the miles you drove before the defect became apparent.</li>
+        <li><strong>Full refund.</strong> Repurchase of the vehicle for the original purchase price, including taxes, registration, and dealer fees. The same usage offset typically applies. Your down payment and trade-in value are included in the refund calculation.</li>
+        <li><strong>Cash and keep settlements.</strong> Some manufacturers prefer to settle by offering a cash payment while you retain the vehicle, particularly for minor defects or when the defect has since been repaired. Whether to accept this depends on the ongoing risk the defect poses.</li>
+      </ul>
+      <p>
+        Under Magnuson-Moss, if you prevail in court you may also recover attorney's fees, court costs, and in some cases consequential damages (such as rental car costs incurred because the vehicle was out of service).
+      </p>
+
+      <h2>Frequently Asked Questions</h2>
+
+      <details class="group">
+        <summary class="cursor-pointer font-semibold text-gray-900 dark:text-gray-100">What is a lemon law?</summary>
+        <p>Lemon laws are consumer protection statutes that entitle buyers of defective vehicles to a repair, replacement, or refund if the manufacturer cannot fix a substantial defect within a reasonable number of attempts. All 50 states plus Washington D.C. have some form of lemon law, and the federal Magnuson-Moss Warranty Act provides an additional layer of protection.</p>
+      </details>
+
+      <details class="group">
+        <summary class="cursor-pointer font-semibold text-gray-900 dark:text-gray-100">How many repair attempts qualify a car as a lemon?</summary>
+        <p>This varies by state, but common thresholds are 3–4 repair attempts for the same defect, or the vehicle being out of service for 30 or more cumulative days during the warranty period. Some states have a single-attempt standard for safety-related defects. Check your state's specific lemon law for the exact threshold.</p>
+      </details>
+
+      <details class="group">
+        <summary class="cursor-pointer font-semibold text-gray-900 dark:text-gray-100">Does lemon law apply to used cars?</summary>
+        <p>Most state lemon laws apply only to new vehicles purchased with a manufacturer's warranty. However, some states extend coverage to used vehicles still under the original manufacturer's warranty, and a few have specific used-car lemon laws. The federal Magnuson-Moss Warranty Act can apply to used vehicles if the seller provided a written warranty.</p>
+      </details>
+
+      <details class="group">
+        <summary class="cursor-pointer font-semibold text-gray-900 dark:text-gray-100">Can NHTSA complaint data help my lemon law case?</summary>
+        <p>Yes. NHTSA complaint data can demonstrate that your defect is part of a known pattern affecting other vehicles — strengthening the argument that it is a systemic defect, not a one-off issue. If NHTSA has opened an investigation or issued a recall for the same problem, that is strong supporting evidence. Print and attach relevant complaints and investigation documents to your lemon law demand letter.</p>
+      </details>
+    </div>
+
+    <div class="mt-12 pt-6 border-t border-gray-200 dark:border-gray-700">
+      <p class="text-sm text-gray-500 dark:text-gray-400">
+        <strong>Sources:</strong> National Highway Traffic Safety Administration, <a href="https://www.nhtsa.gov/vehicle-safety/complaints" class="text-blue-600 dark:text-blue-400 hover:underline" target="_blank" rel="noopener noreferrer">NHTSA Complaints Database</a>; Magnuson-Moss Warranty Act (15 U.S.C. § 2301 et seq.); National Association of Consumer Advocates. This guide is for informational purposes only and does not constitute legal advice. Consult a licensed attorney in your state for advice specific to your situation.
+      </p>
+      <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">
+        <strong>Last updated:</strong> February 2026
+      </p>
+    </div>
+  </div>
+
+  <script type="application/ld+json" set:html={JSON.stringify(faqSchema)} />
+</Base>

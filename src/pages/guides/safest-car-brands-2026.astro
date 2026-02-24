@@ -1,0 +1,197 @@
+---
+export const prerender = true;
+import Base from '../../layouts/Base.astro';
+import Breadcrumb from '../../components/ui/Breadcrumb.astro';
+
+const title = 'Safest Car Brands in 2026: What the Data Shows';
+const description = 'A data-driven look at the NHTSA 5-star safety rating system, which brands earn the highest ratings, how complaint rates vary by manufacturer, and what to look for when evaluating vehicle safety.';
+
+const faqSchema = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What does a 5-star NHTSA safety rating mean?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "A 5-star NHTSA rating means the vehicle performed at the highest level in NHTSA's New Car Assessment Program (NCAP) crash tests, which include frontal barrier, side barrier, pole, and rollover tests. Five stars is the best possible rating; one star is the worst. Most modern vehicles from major manufacturers earn 4–5 stars overall."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is the NHTSA rating the same as the IIHS safety rating?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. NHTSA and the Insurance Institute for Highway Safety (IIHS) are separate organizations with different test protocols. NHTSA uses star ratings (1–5); IIHS uses Good/Acceptable/Marginal/Poor ratings and a Top Safety Pick designation. A vehicle can score differently on each system, so experts recommend checking both."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Which car brands have the most complaints per vehicle?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Complaint rates vary significantly by brand, model, and model year. Raw complaint counts favor high-volume manufacturers. To compare fairly, normalize complaints against estimated sales volume. Brands with older fleet-average ages tend to accumulate more complaints simply due to age. Check individual make pages on PlainCars for current complaint data."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does a high safety rating mean the car is reliable?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Not necessarily. NHTSA crash test ratings measure how a vehicle performs in a collision — they do not measure mechanical reliability or long-term durability. A vehicle can earn 5 stars in crash tests while having a poor reliability track record. Always combine safety ratings with reliability data, owner complaint research, and recall history."
+      }
+    }
+  ]
+};
+---
+
+<Base title={title} description={description}
+  breadcrumbs={[{ name: 'Home', href: '/' }, { name: 'Guides', href: '/guides' }, { name: 'Safest Car Brands 2026' }]}
+>
+  <div class="max-w-3xl mx-auto px-4 py-8">
+    <Breadcrumb items={[
+      { name: 'Guides', href: '/guides' },
+      { name: 'Safest Car Brands 2026' },
+    ]} />
+
+    <header class="mb-8">
+      <h1 class="text-3xl md:text-4xl font-bold text-gray-900 dark:text-gray-100">Safest Car Brands in 2026: What the Data Shows</h1>
+      <p class="text-lg text-gray-500 dark:text-gray-400 mt-2">NHTSA crash test ratings, complaint rates, and what the numbers actually mean for your next vehicle purchase.</p>
+    </header>
+
+    <div class="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-xl p-6 mb-10">
+      <div class="text-sm font-bold uppercase tracking-wider text-blue-700 dark:text-blue-400 mb-2">Key Takeaway</div>
+      <p class="text-gray-700 dark:text-gray-300">No single metric defines vehicle safety. NHTSA's 5-star ratings measure crash performance; complaint data reveals real-world problems; recall history shows whether manufacturers address defects quickly. The safest purchase combines all three data sources — plus independent IIHS testing — for a complete picture.</p>
+    </div>
+
+    <div class="prose prose-gray dark:prose-invert max-w-none">
+      <h2>How the NHTSA 5-Star Safety Rating System Works</h2>
+      <p>
+        NHTSA's New Car Assessment Program (NCAP) has tested new vehicles since 1978, making it one of the longest-running consumer vehicle safety programs in the world. The program crash-tests vehicles across a standardized battery of tests and assigns star ratings from 1 (lowest) to 5 (highest) in each category, plus an overall rating.
+      </p>
+      <p>
+        The current NCAP test battery includes:
+      </p>
+      <ul>
+        <li><strong>Frontal crash test.</strong> The vehicle is driven into a full-width rigid barrier at 35 mph. Sensors measure forces on a crash test dummy representing an average adult male in the driver seat. This tests the structural integrity of the front of the vehicle and the effectiveness of the airbag and restraint system.</li>
+        <li><strong>Side barrier crash test.</strong> A moving deformable barrier strikes the driver's side door at 38.5 mph. This simulates a vehicle running a red light and T-boning the tested vehicle at an intersection. Sensors measure chest, abdomen, and pelvis loads on the occupant dummies.</li>
+        <li><strong>Side pole test.</strong> The vehicle slides sideways into a rigid pole at 20 mph — a simulation of hitting a utility pole or tree in a side-swipe. This is a particularly demanding test for curtain airbags and door structures.</li>
+        <li><strong>Rollover resistance test.</strong> Rather than a crash, this test measures a vehicle's statistical likelihood of rolling over during a loss-of-control event. It uses a dynamic handling test (the "fishhook" maneuver) combined with geometric measurements to calculate a rollover risk rating. SUVs and trucks typically score lower here than sedans and hatchbacks due to their higher center of gravity.</li>
+      </ul>
+      <p>
+        NHTSA is currently implementing a new NCAP version that adds pedestrian detection, lane-keeping assist, and emergency braking performance to the test battery. Vehicles with advanced driver assistance systems (ADAS) will be evaluated differently going forward.
+      </p>
+
+      <h2>What Makes One Brand Safer Than Another</h2>
+      <p>
+        Brand-level safety performance reflects a combination of engineering philosophy, manufacturing quality, body structure choices, and how quickly the brand adopts safety technologies across its lineup.
+      </p>
+      <p>
+        <strong>Structural engineering.</strong> The core determinant of crash test performance is the vehicle's body structure. High-strength and ultra-high-strength steel, strategic crumple zones, and reinforced passenger compartments determine how forces transfer through the vehicle in a crash. Brands that invest heavily in body-in-white engineering consistently perform well across model lines.
+      </p>
+      <p>
+        <strong>Standard safety technology.</strong> Automatic emergency braking, lane departure warning, and blind-spot monitoring were once luxury features. Brands that standardize these technologies across all trim levels — rather than charging extra — protect a broader share of their buyers. NHTSA now includes forward collision warnings and automatic emergency braking availability as part of its overall vehicle assessment.
+      </p>
+      <p>
+        <strong>Restraint system tuning.</strong> Airbag coverage (frontal, side, curtain, knee), seatbelt pretensioner design, and load limiter calibration vary significantly between manufacturers even for vehicles with similar crash structures. The restraint system often determines the difference between a 4-star and 5-star rating.
+      </p>
+      <p>
+        <strong>Fleet-wide commitment.</strong> A brand's safety reputation is built across its entire lineup, not just its flagship models. A manufacturer that earns 5 stars on a premium sedan but 3 stars on an entry-level vehicle is not as uniformly safe as one that achieves high ratings consistently.
+      </p>
+
+      <h2>Brands Consistently Cited for Strong Safety Performance</h2>
+      <p>
+        Safety rankings shift year to year as new models are tested and older ones age out of the current-year test cycle. Rather than a static list, consider the characteristics that distinguish brands with strong safety track records:
+      </p>
+      <p>
+        <strong>Volvo</strong> has maintained a safety-first brand identity for decades. The brand pioneered the three-point seatbelt, introduced side airbags as a standard feature industry-wide, and continues to invest in both passive crash protection and active accident avoidance. Volvo's City Safety system — automatic emergency braking for vehicles, pedestrians, cyclists, and animals — is standard across its lineup.
+      </p>
+      <p>
+        <strong>Subaru</strong> earns consistently strong IIHS ratings and performs well on NHTSA tests. Its EyeSight driver assistance system, which includes adaptive cruise control, pre-collision braking, and lane centering, is standard on most trims. Subaru vehicles' symmetrical all-wheel drive contributes to rollover resistance.
+      </p>
+      <p>
+        <strong>Toyota and Lexus</strong> began standardizing Toyota Safety Sense (TSS) — a suite covering pre-collision warning, automatic braking, lane departure alert, and auto high beams — across their lineup starting around 2018. The broad adoption of TSS at no extra cost raised the floor for a large fleet.
+      </p>
+      <p>
+        <strong>Genesis (Hyundai's luxury brand)</strong> has earned multiple IIHS Top Safety Pick+ awards and NHTSA 5-star ratings across its model range, including on its electric vehicles. As a newer brand, Genesis had the advantage of designing safety technology in from the start rather than retrofitting it.
+      </p>
+      <p>
+        Browse safety ratings for vehicles from any manufacturer on our <a href="/makes/">make and model pages</a>.
+      </p>
+
+      <h2>How Complaint Rates Vary by Manufacturer</h2>
+      <p>
+        Crash test performance and real-world reliability are different measures. A vehicle can perform excellently in controlled crash tests while accumulating a poor complaint record over its service life.
+      </p>
+      <p>
+        When comparing complaint rates across manufacturers, two pitfalls distort raw comparisons:
+      </p>
+      <p>
+        <strong>Volume bias.</strong> A manufacturer selling 3 million vehicles per year will accumulate far more complaints in absolute terms than one selling 300,000 vehicles, even if both have identical defect rates per vehicle. Always normalize: look at complaints per 100,000 vehicles sold, not raw complaint counts.
+      </p>
+      <p>
+        <strong>Fleet age bias.</strong> Brands with a higher average fleet age — more older vehicles in service — accumulate more complaints simply because parts wear out over time. A brand whose customers tend to keep vehicles for 12+ years will show different complaint patterns than a brand with a high lease-return rate and newer average fleet age.
+      </p>
+      <p>
+        With those caveats in mind, NHTSA complaint data consistently shows certain patterns: luxury vehicles tend to generate more complaints per unit sold than economy vehicles (partially a reporting rate effect — more engaged, affluent owners), and certain component categories cluster by manufacturer based on supplier relationships and shared platforms.
+      </p>
+      <p>
+        Check complaint histories for specific models on our <a href="/makes/">make pages</a> to understand problem areas before purchasing.
+      </p>
+
+      <h2>What to Look for When Evaluating Vehicle Safety</h2>
+      <p>
+        A rigorous safety evaluation before purchase combines multiple data sources:
+      </p>
+      <p>
+        <strong>1. NHTSA overall star rating.</strong> A starting point. Look for 4 or 5 stars overall. Check individual category scores — a 5-star overall rating can mask a 3-star rollover score, which matters more for SUVs.
+      </p>
+      <p>
+        <strong>2. IIHS ratings.</strong> IIHS tests for different scenarios than NHTSA and is generally considered the more demanding of the two. Look for a Top Safety Pick or Top Safety Pick+ designation. Pay particular attention to the small overlap frontal test and the pedestrian AEB test, where vehicle performance varies most.
+      </p>
+      <p>
+        <strong>3. Complaint history for your specific model year.</strong> Safety ratings are awarded once for a model year, but complaints accumulate over years of service. A model year with unusual complaint volume in a safety-critical component (brakes, steering, fuel system) is a signal the ratings didn't capture everything.
+      </p>
+      <p>
+        <strong>4. Recall history.</strong> A manufacturer that consistently issues recalls may be catching problems its quality control missed. But a manufacturer that <em>never</em> issues recalls despite vehicle problems may not be monitoring its own products adequately. Review <a href="/recalls/">recall history</a> for any model you're considering.
+      </p>
+      <p>
+        <strong>5. Standard vs. optional safety features.</strong> Verify that the features responsible for a model's good safety reputation are standard on the trim you're purchasing, not optional add-ons. Automatic emergency braking on the base trim is more valuable than a premium safety package on the top trim.
+      </p>
+
+      <h2>Frequently Asked Questions</h2>
+
+      <details class="group">
+        <summary class="cursor-pointer font-semibold text-gray-900 dark:text-gray-100">What does a 5-star NHTSA safety rating mean?</summary>
+        <p>A 5-star NHTSA rating means the vehicle performed at the highest level in NHTSA's New Car Assessment Program (NCAP) crash tests, which include frontal barrier, side barrier, pole, and rollover tests. Five stars is the best possible rating; one star is the worst. Most modern vehicles from major manufacturers earn 4–5 stars overall.</p>
+      </details>
+
+      <details class="group">
+        <summary class="cursor-pointer font-semibold text-gray-900 dark:text-gray-100">Is the NHTSA rating the same as the IIHS safety rating?</summary>
+        <p>No. NHTSA and the Insurance Institute for Highway Safety (IIHS) are separate organizations with different test protocols. NHTSA uses star ratings (1–5); IIHS uses Good/Acceptable/Marginal/Poor ratings and a Top Safety Pick designation. A vehicle can score differently on each system, so experts recommend checking both.</p>
+      </details>
+
+      <details class="group">
+        <summary class="cursor-pointer font-semibold text-gray-900 dark:text-gray-100">Which car brands have the most complaints per vehicle?</summary>
+        <p>Complaint rates vary significantly by brand, model, and model year. Raw complaint counts favor high-volume manufacturers. To compare fairly, normalize complaints against estimated sales volume. Brands with older fleet-average ages tend to accumulate more complaints simply due to age. Check individual make pages on PlainCars for current complaint data.</p>
+      </details>
+
+      <details class="group">
+        <summary class="cursor-pointer font-semibold text-gray-900 dark:text-gray-100">Does a high safety rating mean the car is reliable?</summary>
+        <p>Not necessarily. NHTSA crash test ratings measure how a vehicle performs in a collision — they do not measure mechanical reliability or long-term durability. A vehicle can earn 5 stars in crash tests while having a poor reliability track record. Always combine safety ratings with reliability data, owner complaint research, and recall history.</p>
+      </details>
+    </div>
+
+    <div class="mt-12 pt-6 border-t border-gray-200 dark:border-gray-700">
+      <p class="text-sm text-gray-500 dark:text-gray-400">
+        <strong>Sources:</strong> National Highway Traffic Safety Administration, <a href="https://www.nhtsa.gov/ratings" class="text-blue-600 dark:text-blue-400 hover:underline" target="_blank" rel="noopener noreferrer">NHTSA New Car Assessment Program</a>; Insurance Institute for Highway Safety (IIHS); NHTSA complaints and recall databases.
+      </p>
+      <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">
+        <strong>Last updated:</strong> February 2026
+      </p>
+    </div>
+  </div>
+
+  <script type="application/ld+json" set:html={JSON.stringify(faqSchema)} />
+</Base>

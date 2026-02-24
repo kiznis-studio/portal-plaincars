@@ -1,0 +1,79 @@
+---
+export const prerender = true;
+import Base from '../../layouts/Base.astro';
+import Breadcrumb from '../../components/ui/Breadcrumb.astro';
+
+const title = 'Vehicle Safety Guides — NHTSA Complaints, Recalls & Car Buying';
+const description = 'Plain-language guides on NHTSA complaints, vehicle recalls, safety ratings, and your rights as a car owner. Data sourced from the National Highway Traffic Safety Administration.';
+
+const guides = [
+  {
+    title: 'Understanding NHTSA Vehicle Complaints: A Consumer Guide',
+    href: '/guides/understanding-nhtsa-complaints',
+    description: 'Learn what NHTSA complaints are, how the system works, how to file a complaint, and how complaint patterns lead to investigations and recalls.',
+    icon: '📋',
+  },
+  {
+    title: 'Vehicle Recalls Explained: What Every Car Owner Needs to Know',
+    href: '/guides/vehicle-recalls-explained',
+    description: 'What triggers a recall, how to check if your vehicle is affected, what the remedy process looks like, and the most common recall categories.',
+    icon: '🔔',
+  },
+  {
+    title: 'Safest Car Brands in 2026: What the Data Shows',
+    href: '/guides/safest-car-brands-2026',
+    description: 'A data-driven look at NHTSA 5-star ratings, complaint rates by manufacturer, and what to look for when evaluating a vehicle\'s safety record.',
+    icon: '⭐',
+  },
+  {
+    title: 'Most Reliable Used Cars: A Data-Driven Guide',
+    href: '/guides/most-reliable-used-cars',
+    description: 'How to use NHTSA complaint data to evaluate used car reliability, which models stand out across 5–10 year windows, and what to check before buying.',
+    icon: '🔍',
+  },
+  {
+    title: 'Lemon Law Guide: Your Rights When You Buy a Defective Vehicle',
+    href: '/guides/lemon-law-guide',
+    description: 'Federal vs. state lemon laws, what qualifies as a lemon, the steps to take if you suspect a defective vehicle, and how NHTSA data supports your claim.',
+    icon: '⚖️',
+  },
+];
+---
+
+<Base title={title} description={description}
+  breadcrumbs={[{ name: 'Home', href: '/' }, { name: 'Guides' }]}
+>
+  <div class="max-w-4xl mx-auto px-4 py-8">
+    <Breadcrumb items={[
+      { name: 'Guides' },
+    ]} />
+
+    <header class="mb-10">
+      <h1 class="text-3xl md:text-4xl font-bold text-gray-900 dark:text-gray-100">Vehicle Safety Guides</h1>
+      <p class="text-lg text-gray-500 dark:text-gray-400 mt-2">
+        Plain-language guides on NHTSA complaints, recalls, safety ratings, and your rights as a vehicle owner — all grounded in federal data.
+      </p>
+    </header>
+
+    <div class="grid gap-6 sm:grid-cols-2">
+      {guides.map(guide => (
+        <a href={guide.href} class="group block p-6 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/50 hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-md transition-all">
+          <div class="text-3xl mb-3">{guide.icon}</div>
+          <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+            {guide.title}
+          </h2>
+          <p class="text-sm text-gray-500 dark:text-gray-400 mt-2 leading-relaxed">
+            {guide.description}
+          </p>
+        </a>
+      ))}
+    </div>
+
+    <div class="mt-12 pt-8 border-t border-gray-200 dark:border-gray-700">
+      <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-3">About These Guides</h2>
+      <p class="text-gray-600 dark:text-gray-400 leading-relaxed">
+        PlainCars guides are written to help consumers understand vehicle safety data from the National Highway Traffic Safety Administration (NHTSA). All information is sourced from official federal data, including NHTSA complaint records, recall databases, and the New Car Assessment Program (NCAP). Use our <a href="/makes/" class="text-blue-600 dark:text-blue-400 hover:underline">make and model pages</a> or the <a href="/recalls/" class="text-blue-600 dark:text-blue-400 hover:underline">recall search</a> to look up specific vehicle safety data.
+      </p>
+    </div>
+  </div>
+</Base>
