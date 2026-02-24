@@ -236,6 +236,135 @@ export async function getMostRecalledModels(db: D1Database, limit: number = 100)
   return results;
 }
 
+// --- State Map ---
+
+export const STATE_MAP: Record<string, { name: string; slug: string }> = {
+  AL: { name: 'Alabama', slug: 'alabama' },
+  AK: { name: 'Alaska', slug: 'alaska' },
+  AZ: { name: 'Arizona', slug: 'arizona' },
+  AR: { name: 'Arkansas', slug: 'arkansas' },
+  CA: { name: 'California', slug: 'california' },
+  CO: { name: 'Colorado', slug: 'colorado' },
+  CT: { name: 'Connecticut', slug: 'connecticut' },
+  DE: { name: 'Delaware', slug: 'delaware' },
+  DC: { name: 'District of Columbia', slug: 'district-of-columbia' },
+  FL: { name: 'Florida', slug: 'florida' },
+  GA: { name: 'Georgia', slug: 'georgia' },
+  HI: { name: 'Hawaii', slug: 'hawaii' },
+  ID: { name: 'Idaho', slug: 'idaho' },
+  IL: { name: 'Illinois', slug: 'illinois' },
+  IN: { name: 'Indiana', slug: 'indiana' },
+  IA: { name: 'Iowa', slug: 'iowa' },
+  KS: { name: 'Kansas', slug: 'kansas' },
+  KY: { name: 'Kentucky', slug: 'kentucky' },
+  LA: { name: 'Louisiana', slug: 'louisiana' },
+  ME: { name: 'Maine', slug: 'maine' },
+  MD: { name: 'Maryland', slug: 'maryland' },
+  MA: { name: 'Massachusetts', slug: 'massachusetts' },
+  MI: { name: 'Michigan', slug: 'michigan' },
+  MN: { name: 'Minnesota', slug: 'minnesota' },
+  MS: { name: 'Mississippi', slug: 'mississippi' },
+  MO: { name: 'Missouri', slug: 'missouri' },
+  MT: { name: 'Montana', slug: 'montana' },
+  NE: { name: 'Nebraska', slug: 'nebraska' },
+  NV: { name: 'Nevada', slug: 'nevada' },
+  NH: { name: 'New Hampshire', slug: 'new-hampshire' },
+  NJ: { name: 'New Jersey', slug: 'new-jersey' },
+  NM: { name: 'New Mexico', slug: 'new-mexico' },
+  NY: { name: 'New York', slug: 'new-york' },
+  NC: { name: 'North Carolina', slug: 'north-carolina' },
+  ND: { name: 'North Dakota', slug: 'north-dakota' },
+  OH: { name: 'Ohio', slug: 'ohio' },
+  OK: { name: 'Oklahoma', slug: 'oklahoma' },
+  OR: { name: 'Oregon', slug: 'oregon' },
+  PA: { name: 'Pennsylvania', slug: 'pennsylvania' },
+  RI: { name: 'Rhode Island', slug: 'rhode-island' },
+  SC: { name: 'South Carolina', slug: 'south-carolina' },
+  SD: { name: 'South Dakota', slug: 'south-dakota' },
+  TN: { name: 'Tennessee', slug: 'tennessee' },
+  TX: { name: 'Texas', slug: 'texas' },
+  UT: { name: 'Utah', slug: 'utah' },
+  VT: { name: 'Vermont', slug: 'vermont' },
+  VA: { name: 'Virginia', slug: 'virginia' },
+  WA: { name: 'Washington', slug: 'washington' },
+  WV: { name: 'West Virginia', slug: 'west-virginia' },
+  WI: { name: 'Wisconsin', slug: 'wisconsin' },
+  WY: { name: 'Wyoming', slug: 'wyoming' },
+};
+
+// Reverse lookup: slug → state code
+const SLUG_TO_CODE: Record<string, string> = Object.fromEntries(
+  Object.entries(STATE_MAP).map(([code, { slug }]) => [slug, code])
+);
+
+export interface StateInfo {
+  code: string;
+  name: string;
+  slug: string;
+  complaint_count: number;
+}
+
+export interface StateVehicle {
+  make_name: string;
+  model_name: string;
+  slug: string;
+  complaint_count: number;
+  crash_count: number;
+  fire_count: number;
+  injury_count: number;
+  death_count: number;
+  year_min: number;
+  year_max: number;
+}
+
+export async function getAllStates(db: D1Database): Promise<StateInfo[]> {
+  const { results } = await db.prepare(
+    `SELECT state, COUNT(*) as complaint_count
+     FROM complaints
+     WHERE state IS NOT NULL AND state != ''
+     GROUP BY state
+     ORDER BY complaint_count DESC`
+  ).all<{ state: string; complaint_count: number }>();
+
+  return results
+    .filter(r => STATE_MAP[r.state])
+    .map(r => ({
+      code: r.state,
+      name: STATE_MAP[r.state].name,
+      slug: STATE_MAP[r.state].slug,
+      complaint_count: r.complaint_count,
+    }));
+}
+
+export function getStateBySlug(slug: string): { code: string; name: string; slug: string } | null {
+  const code = SLUG_TO_CODE[slug];
+  if (!code) return null;
+  return { code, name: STATE_MAP[code].name, slug };
+}
+
+export async function getMostComplainedInState(db: D1Database, stateCode: string, limit: number = 50): Promise<StateVehicle[]> {
+  const { results } = await db.prepare(`
+    SELECT
+      mk.make_name, mo.model_name, mo.slug,
+      COUNT(*) as complaint_count,
+      SUM(CASE WHEN c.crash = 'Y' THEN 1 ELSE 0 END) as crash_count,
+      SUM(CASE WHEN c.fire = 'Y' THEN 1 ELSE 0 END) as fire_count,
+      SUM(c.injured) as injury_count,
+      SUM(c.deaths) as death_count,
+      MIN(my.year) as year_min,
+      MAX(my.year) as year_max
+    FROM complaints c
+    JOIN model_years my ON c.my_id = my.my_id
+    JOIN models mo ON my.model_id = mo.model_id
+    JOIN makes mk ON my.make_id = mk.make_id
+    WHERE c.state = ?
+    GROUP BY mo.model_id
+    ORDER BY complaint_count DESC
+    LIMIT ?
+  `).bind(stateCode, limit).all<StateVehicle>();
+  return results;
+}
+
 // --- Search ---
 
 export async function searchModels(db: D1Database, query: string, limit: number = 15) {

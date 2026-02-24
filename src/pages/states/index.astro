@@ -1,0 +1,77 @@
+---
+export const prerender = false;
+import Base from '../../layouts/Base.astro';
+import Breadcrumb from '../../components/ui/Breadcrumb.astro';
+import { getAllStates } from '../../lib/db';
+
+const db = Astro.locals.runtime.env.DB;
+const states = await getAllStates(db);
+const totalComplaints = states.reduce((sum, s) => sum + s.complaint_count, 0);
+---
+
+<Base
+  title="Vehicle Complaints by State — NHTSA Data"
+  description={`Browse NHTSA vehicle complaints across all 50 states and DC. ${totalComplaints.toLocaleString()} total complaints with state-level safety data.`}
+  breadcrumbs={[{ name: 'Home', href: '/' }, { name: 'States' }]}
+>
+  <div class="max-w-6xl mx-auto px-4 py-8">
+    <Breadcrumb items={[{ name: 'Home', href: '/' }, { name: 'States' }]} />
+
+    <h1 class="text-3xl font-bold text-[var(--color-text)] mb-2 mt-4">Vehicle Complaints by State</h1>
+    <p class="text-[var(--color-text-secondary)] mb-8 leading-relaxed">
+      Browse <strong>{totalComplaints.toLocaleString()} NHTSA vehicle complaints</strong> across all 50 states and the District of Columbia. Select a state to see the most complained-about vehicles in your area.
+    </p>
+
+    <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
+      <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-4 text-center">
+        <div class="text-2xl font-bold text-[var(--color-primary)]">{states.length}</div>
+        <div class="text-xs text-[var(--color-text-secondary)] mt-1">States + DC</div>
+      </div>
+      <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-4 text-center">
+        <div class="text-2xl font-bold text-[var(--color-primary)]">{totalComplaints.toLocaleString()}</div>
+        <div class="text-xs text-[var(--color-text-secondary)] mt-1">Total Complaints</div>
+      </div>
+      <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-4 text-center">
+        <div class="text-2xl font-bold text-[var(--color-primary)]">{states[0]?.name || '—'}</div>
+        <div class="text-xs text-[var(--color-text-secondary)] mt-1">Most Complaints</div>
+      </div>
+    </div>
+
+    <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg overflow-hidden">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-[var(--color-border)] bg-[var(--color-surface-alt)]">
+            <th class="text-left px-4 py-3 font-medium">#</th>
+            <th class="text-left px-4 py-3 font-medium">State</th>
+            <th class="text-right px-4 py-3 font-medium">Complaints</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-[var(--color-border)]">
+          {states.map((s, i) => (
+            <tr class="hover:bg-[var(--color-surface-alt)] transition-colors">
+              <td class="px-4 py-3 text-[var(--color-text-secondary)]">{i + 1}</td>
+              <td class="px-4 py-3">
+                <a href={`/states/${s.slug}`} class="font-medium text-[var(--color-primary)] hover:underline">
+                  {s.name}
+                </a>
+                <span class="ml-2 text-xs text-[var(--color-text-secondary)]">{s.code}</span>
+              </td>
+              <td class="text-right px-4 py-3 text-[var(--color-text-secondary)]">{s.complaint_count.toLocaleString()}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+
+    <p class="text-xs text-[var(--color-text-secondary)] mt-6">Source: National Highway Traffic Safety Administration (NHTSA) complaints data. State is self-reported by the vehicle owner.</p>
+  </div>
+
+  <script type="application/ld+json" set:html={JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://plaincars.com/' },
+      { '@type': 'ListItem', position: 2, name: 'States' },
+    ],
+  })} />
+</Base>

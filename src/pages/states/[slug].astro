@@ -1,0 +1,158 @@
+---
+export const prerender = false;
+import Base from '../../layouts/Base.astro';
+import Breadcrumb from '../../components/ui/Breadcrumb.astro';
+import { getStateBySlug, getMostComplainedInState } from '../../lib/db';
+
+const db = Astro.locals.runtime.env.DB;
+const { slug } = Astro.params;
+
+const state = getStateBySlug(slug || '');
+if (!state) return Astro.redirect('/404');
+
+const vehicles = await getMostComplainedInState(db, state.code, 50);
+
+const totalComplaints = vehicles.reduce((sum, v) => sum + v.complaint_count, 0);
+const totalCrashes = vehicles.reduce((sum, v) => sum + v.crash_count, 0);
+const totalFires = vehicles.reduce((sum, v) => sum + v.fire_count, 0);
+const totalDeaths = vehicles.reduce((sum, v) => sum + v.death_count, 0);
+const uniqueVehicles = vehicles.length;
+
+// Find the most complained make
+const makeCounts: Record<string, number> = {};
+vehicles.forEach(v => {
+  makeCounts[v.make_name] = (makeCounts[v.make_name] || 0) + v.complaint_count;
+});
+const topMake = Object.entries(makeCounts).sort((a, b) => b[1] - a[1])[0];
+
+const breadcrumbs = [
+  { name: 'Home', href: '/' },
+  { name: 'States', href: '/states' },
+  { name: state.name },
+];
+
+const breadcrumbSchema = JSON.stringify({
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: [
+    { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://plaincars.com/' },
+    { '@type': 'ListItem', position: 2, name: 'States', item: 'https://plaincars.com/states' },
+    { '@type': 'ListItem', position: 3, name: state.name },
+  ],
+});
+---
+
+<Base
+  title={`${state.name} Vehicle Complaints — NHTSA Safety Data`}
+  description={`${totalComplaints.toLocaleString()} NHTSA vehicle complaints reported in ${state.name}. See the most complained-about cars, trucks, and SUVs with crash and recall data.`}
+  breadcrumbs={breadcrumbs}
+>
+  <div class="max-w-6xl mx-auto px-4 py-8">
+    <Breadcrumb items={breadcrumbs} />
+
+    <h1 class="text-3xl font-bold text-[var(--color-text)] mb-2 mt-4">{state.name} Vehicle Complaints</h1>
+    <p class="text-[var(--color-text-secondary)] mb-8 leading-relaxed">
+      Vehicle owners in <strong>{state.name}</strong> have filed <strong>{totalComplaints.toLocaleString()} NHTSA complaints</strong> across {uniqueVehicles} vehicle models. Below are the top 50 most-complained vehicles in {state.name}, ranked by total complaint count.
+    </p>
+
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
+      <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-4 text-center">
+        <div class="text-xl font-bold text-[var(--color-primary)]">{totalComplaints.toLocaleString()}</div>
+        <div class="text-xs text-[var(--color-text-secondary)] mt-1">Complaints</div>
+      </div>
+      <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-4 text-center">
+        <div class="text-xl font-bold text-[var(--color-primary)]">{uniqueVehicles}</div>
+        <div class="text-xs text-[var(--color-text-secondary)] mt-1">Vehicles</div>
+      </div>
+      <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-4 text-center">
+        <div class="text-xl font-bold text-amber-600 dark:text-amber-400">{totalCrashes.toLocaleString()}</div>
+        <div class="text-xs text-[var(--color-text-secondary)] mt-1">Crashes</div>
+      </div>
+      <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-4 text-center">
+        <div class="text-xl font-bold text-amber-600 dark:text-amber-400">{totalFires.toLocaleString()}</div>
+        <div class="text-xs text-[var(--color-text-secondary)] mt-1">Fires</div>
+      </div>
+      <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-4 text-center">
+        <div class="text-xl font-bold text-amber-600 dark:text-amber-400">{totalDeaths}</div>
+        <div class="text-xs text-[var(--color-text-secondary)] mt-1">Deaths</div>
+      </div>
+    </div>
+
+    {topMake && (
+      <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-4 mb-8">
+        <div class="text-sm text-[var(--color-text-secondary)]">Most complained make in {state.name}</div>
+        <div class="text-lg font-bold text-[var(--color-text)]">{topMake[0]} <span class="text-sm font-normal text-[var(--color-text-secondary)]">({topMake[1].toLocaleString()} complaints)</span></div>
+      </div>
+    )}
+
+    <h2 class="text-xl font-bold text-[var(--color-text)] mb-4">Top 50 Most-Complained Vehicles in {state.name}</h2>
+    <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-[var(--color-border)] bg-[var(--color-surface-alt)]">
+              <th class="text-left px-4 py-3 font-medium">#</th>
+              <th class="text-left px-4 py-3 font-medium">Vehicle</th>
+              <th class="text-right px-4 py-3 font-medium">Complaints</th>
+              <th class="text-right px-4 py-3 font-medium hidden sm:table-cell">Years</th>
+              <th class="text-right px-4 py-3 font-medium hidden md:table-cell">Crashes</th>
+              <th class="text-right px-4 py-3 font-medium hidden md:table-cell">Fires</th>
+              <th class="text-right px-4 py-3 font-medium hidden lg:table-cell">Deaths</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-[var(--color-border)]">
+            {vehicles.map((v, i) => (
+              <tr class="hover:bg-[var(--color-surface-alt)] transition-colors">
+                <td class="px-4 py-3 text-[var(--color-text-secondary)]">{i + 1}</td>
+                <td class="px-4 py-3">
+                  <a href={`/make/${v.slug}`} class="font-medium text-[var(--color-primary)] hover:underline">
+                    {v.make_name} {v.model_name}
+                  </a>
+                </td>
+                <td class="text-right px-4 py-3 text-[var(--color-text-secondary)]">{v.complaint_count.toLocaleString()}</td>
+                <td class="text-right px-4 py-3 text-[var(--color-text-secondary)] hidden sm:table-cell">
+                  {v.year_min === v.year_max ? v.year_min : `${v.year_min}–${v.year_max}`}
+                </td>
+                <td class="text-right px-4 py-3 hidden md:table-cell">
+                  {v.crash_count > 0 ? (
+                    <span class="text-amber-600 dark:text-amber-400">{v.crash_count}</span>
+                  ) : (
+                    <span class="text-[var(--color-text-secondary)]">0</span>
+                  )}
+                </td>
+                <td class="text-right px-4 py-3 hidden md:table-cell">
+                  {v.fire_count > 0 ? (
+                    <span class="text-amber-600 dark:text-amber-400">{v.fire_count}</span>
+                  ) : (
+                    <span class="text-[var(--color-text-secondary)]">0</span>
+                  )}
+                </td>
+                <td class="text-right px-4 py-3 hidden lg:table-cell">
+                  {v.death_count > 0 ? (
+                    <span class="text-amber-600 dark:text-amber-400 font-medium">{v.death_count}</span>
+                  ) : (
+                    <span class="text-[var(--color-text-secondary)]">0</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Cross-Portal Links -->
+    <div class="mt-10 pt-6 border-t border-[var(--color-border)]">
+      <h3 class="text-sm font-semibold text-[var(--color-muted)] uppercase tracking-wider mb-3">Explore More Data</h3>
+      <div class="flex flex-wrap gap-2">
+        <a href="https://plainrecalls.com" class="text-sm px-3 py-1.5 rounded-lg bg-[var(--color-card)] border border-[var(--color-border)] hover:border-[var(--color-accent)] transition-colors" target="_blank" rel="noopener">Product Recalls &#8594;</a>
+        <a href="https://plaincrime.com" class="text-sm px-3 py-1.5 rounded-lg bg-[var(--color-card)] border border-[var(--color-border)] hover:border-[var(--color-accent)] transition-colors" target="_blank" rel="noopener">Crime Data &#8594;</a>
+        <a href="https://plaincompare.com" class="text-sm px-3 py-1.5 rounded-lg bg-[var(--color-card)] border border-[var(--color-border)] hover:border-[var(--color-accent)] transition-colors" target="_blank" rel="noopener">Compare Cities &#8594;</a>
+      </div>
+    </div>
+
+    <p class="text-xs text-[var(--color-text-secondary)] mt-6">Source: National Highway Traffic Safety Administration (NHTSA) complaints data. State is self-reported by the vehicle owner.</p>
+  </div>
+
+  <script type="application/ld+json" set:html={breadcrumbSchema} />
+</Base>
