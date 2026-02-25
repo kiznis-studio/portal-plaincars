@@ -2,6 +2,7 @@
 export const prerender = false;
 import Base from '../../layouts/Base.astro';
 import Breadcrumb from '../../components/ui/Breadcrumb.astro';
+import AdSlot from '../../components/ads/AdSlot.astro';
 import { getMakeBySlug, getModelsByMake, getModelBySlug, getModelYears, getModelYearById, getComplaintStats, getComplaints, getRecallsByModelYear } from '../../lib/db';
 
 const db = Astro.locals.runtime.env.DB;
@@ -119,6 +120,8 @@ const faqSchema = faqItems.length > 0 ? JSON.stringify({
         </div>
       </div>
 
+      <AdSlot slot="mid" />
+
       <h2 class="text-xl font-bold text-[var(--color-text)] mb-4">{make.make_name} Models</h2>
       <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg overflow-hidden">
         <table class="w-full text-sm">
@@ -214,6 +217,8 @@ const faqSchema = faqItems.length > 0 ? JSON.stringify({
           <div class="text-xs text-[var(--color-text-secondary)]">Recalls</div>
         </div>
       </div>
+
+      <AdSlot slot="mid" />
 
       <h2 class="text-xl font-bold text-[var(--color-text)] mb-4">Complaints by Year</h2>
       <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg overflow-hidden">
@@ -362,6 +367,8 @@ const faqSchema = faqItems.length > 0 ? JSON.stringify({
           </div>
         </div>
       )}
+
+      <AdSlot slot="mid" />
 
       {stats.length > 0 && (
         <div class="mb-8">

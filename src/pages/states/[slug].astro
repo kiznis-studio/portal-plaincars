@@ -2,6 +2,7 @@
 export const prerender = false;
 import Base from '../../layouts/Base.astro';
 import Breadcrumb from '../../components/ui/Breadcrumb.astro';
+import AdSlot from '../../components/ads/AdSlot.astro';
 import { getStateBySlug, getMostComplainedInState } from '../../lib/db';
 
 const db = Astro.locals.runtime.env.DB;
@@ -84,6 +85,8 @@ const breadcrumbSchema = JSON.stringify({
         <div class="text-lg font-bold text-[var(--color-text)]">{topMake[0]} <span class="text-sm font-normal text-[var(--color-text-secondary)]">({topMake[1].toLocaleString()} complaints)</span></div>
       </div>
     )}
+
+    <AdSlot slot="mid" />
 
     <h2 class="text-xl font-bold text-[var(--color-text)] mb-4">Top 50 Most-Complained Vehicles in {state.name}</h2>
     <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg overflow-hidden">
