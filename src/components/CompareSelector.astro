@@ -1,0 +1,150 @@
+---
+// CompareSelector: Two autocomplete inputs for vehicle model selection
+// Uses /api/search endpoint for results, DOM methods only (no innerHTML)
+---
+
+<div class="compare-selector">
+  <div class="grid grid-cols-1 sm:grid-cols-[1fr_auto_1fr] gap-3 items-start">
+    <div class="relative">
+      <label for="model-a" class="block text-xs font-medium text-[var(--color-text-secondary)] mb-1">Vehicle 1</label>
+      <input
+        type="text"
+        id="model-a"
+        placeholder="Search make or model..."
+        autocomplete="off"
+        class="w-full h-10 px-3 text-sm rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text)] placeholder-[var(--color-text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent"
+      />
+      <div id="dropdown-a" class="absolute z-50 top-full left-0 right-0 mt-1 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg shadow-lg hidden overflow-hidden max-h-60 overflow-y-auto"></div>
+    </div>
+
+    <button
+      id="swap-btn"
+      type="button"
+      class="self-end mb-0.5 h-10 w-10 flex items-center justify-center rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] hover:bg-[var(--color-surface-alt)] transition-colors text-[var(--color-text-secondary)]"
+      title="Swap vehicles"
+    >
+      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 16l-4-4 4-4"/><path d="M17 8l4 4-4 4"/><path d="M3 12h18"/></svg>
+    </button>
+
+    <div class="relative">
+      <label for="model-b" class="block text-xs font-medium text-[var(--color-text-secondary)] mb-1">Vehicle 2</label>
+      <input
+        type="text"
+        id="model-b"
+        placeholder="Search make or model..."
+        autocomplete="off"
+        class="w-full h-10 px-3 text-sm rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text)] placeholder-[var(--color-text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent"
+      />
+      <div id="dropdown-b" class="absolute z-50 top-full left-0 right-0 mt-1 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg shadow-lg hidden overflow-hidden max-h-60 overflow-y-auto"></div>
+    </div>
+  </div>
+
+  <button
+    id="compare-btn"
+    type="button"
+    disabled
+    class="mt-4 w-full sm:w-auto px-6 py-2.5 text-sm font-medium bg-[var(--color-primary)] text-white rounded-lg hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+  >
+    Compare Vehicles
+  </button>
+</div>
+
+<script is:inline>
+(function() {
+  var inputA = document.getElementById('model-a');
+  var inputB = document.getElementById('model-b');
+  var dropA = document.getElementById('dropdown-a');
+  var dropB = document.getElementById('dropdown-b');
+  var swapBtn = document.getElementById('swap-btn');
+  var compareBtn = document.getElementById('compare-btn');
+
+  var selectedA = null;
+  var selectedB = null;
+  var debounceTimer = null;
+
+  function search(query, callback) {
+    if (query.length < 2) { callback([]); return; }
+    fetch('/api/search?q=' + encodeURIComponent(query))
+      .then(function(r) { return r.json(); })
+      .then(callback)
+      .catch(function() { callback([]); });
+  }
+
+  function renderDropdown(dropdown, results, onSelect) {
+    while (dropdown.firstChild) dropdown.removeChild(dropdown.firstChild);
+    if (results.length === 0) {
+      dropdown.classList.add('hidden');
+      return;
+    }
+    results.forEach(function(item) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'w-full text-left px-3 py-2 text-sm hover:bg-[var(--color-surface-alt)] transition-colors flex items-center justify-between';
+
+      var nameSpan = document.createElement('span');
+      nameSpan.className = 'font-medium text-[var(--color-text)]';
+      nameSpan.textContent = item.make_name + ' ' + item.model_name;
+
+      var metaSpan = document.createElement('span');
+      metaSpan.className = 'text-xs text-[var(--color-text-secondary)]';
+      metaSpan.textContent = item.year_min + '–' + item.year_max;
+
+      btn.appendChild(nameSpan);
+      btn.appendChild(metaSpan);
+      btn.addEventListener('click', function() { onSelect(item); });
+      dropdown.appendChild(btn);
+    });
+    dropdown.classList.remove('hidden');
+  }
+
+  function setupInput(input, dropdown, setSelected) {
+    input.addEventListener('input', function() {
+      setSelected(null);
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(function() {
+        search(input.value, function(results) {
+          renderDropdown(dropdown, results, function(item) {
+            input.value = item.make_name + ' ' + item.model_name;
+            dropdown.classList.add('hidden');
+            setSelected(item);
+            updateCompareBtn();
+          });
+        });
+      }, 200);
+    });
+
+    input.addEventListener('focus', function() {
+      if (dropdown.children.length > 0) dropdown.classList.remove('hidden');
+    });
+
+    document.addEventListener('click', function(e) {
+      if (!input.contains(e.target) && !dropdown.contains(e.target)) {
+        dropdown.classList.add('hidden');
+      }
+    });
+  }
+
+  setupInput(inputA, dropA, function(v) { selectedA = v; });
+  setupInput(inputB, dropB, function(v) { selectedB = v; });
+
+  function updateCompareBtn() {
+    compareBtn.disabled = !(selectedA && selectedB && selectedA.slug !== selectedB.slug);
+  }
+
+  swapBtn.addEventListener('click', function() {
+    var tmpVal = inputA.value;
+    inputA.value = inputB.value;
+    inputB.value = tmpVal;
+    var tmpSel = selectedA;
+    selectedA = selectedB;
+    selectedB = tmpSel;
+    updateCompareBtn();
+  });
+
+  compareBtn.addEventListener('click', function() {
+    if (!selectedA || !selectedB) return;
+    var slugs = [selectedA.slug, selectedB.slug].sort();
+    window.location.href = '/compare/' + slugs[0] + '-vs-' + slugs[1];
+  });
+})();
+</script>

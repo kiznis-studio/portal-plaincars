@@ -3,7 +3,7 @@ export const prerender = false;
 import Base from '../../layouts/Base.astro';
 import Breadcrumb from '../../components/ui/Breadcrumb.astro';
 import AdSlot from '../../components/ads/AdSlot.astro';
-import { getMakeBySlug, getModelsByMake, getModelBySlug, getModelYears, getModelYearById, getComplaintStats, getComplaints, getRecallsByModelYear } from '../../lib/db';
+import { getMakeBySlug, getModelsByMake, getModelBySlug, getModelYears, getModelYearById, getComplaintStats, getComplaints, getRecallsByModelYear, getCompareModelsForModel } from '../../lib/db';
 
 const db = Astro.locals.runtime.env.DB;
 const slugPath = Astro.params.slug || '';
@@ -53,6 +53,14 @@ if (make) {
 if (!make && !model && !modelYear) return Astro.redirect('/404');
 
 const pageType = modelYear ? 'year' : model ? 'model' : 'make';
+
+// Fetch compare suggestions for model pages
+let compareModels: any[] = [];
+if (pageType === 'model' && model) {
+  compareModels = await getCompareModelsForModel(db, model.model_id, 4);
+} else if (pageType === 'year' && model) {
+  compareModels = await getCompareModelsForModel(db, model.model_id, 4);
+}
 
 // FAQ generation
 const faqItems: { q: string; a: string }[] = [];
@@ -256,6 +264,22 @@ const faqSchema = faqItems.length > 0 ? JSON.stringify({
         </table>
       </div>
 
+      {compareModels.length > 0 && (
+        <div class="mt-8 mb-8">
+          <h2 class="text-lg font-semibold text-[var(--color-text)] mb-3">Compare {make.make_name} {model.model_name}</h2>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {compareModels.map((cm: any) => {
+              const slugs = [model.slug, cm.slug].sort();
+              return (
+                <a href={`/compare/${slugs[0]}-vs-${slugs[1]}`} class="flex items-center gap-2 px-3 py-2 text-sm bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg hover:border-[var(--color-primary)] transition-colors text-[var(--color-primary)]">
+                  {make.make_name} {model.model_name} vs {cm.make_name} {cm.model_name} &rarr;
+                </a>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {faqItems.length > 0 && (
         <section class="mb-8">
           <h2 class="text-lg font-semibold text-[var(--color-text)] mb-4">Frequently Asked Questions</h2>
@@ -274,8 +298,8 @@ const faqSchema = faqItems.length > 0 ? JSON.stringify({
       <div class="mt-10 pt-6 border-t border-[var(--color-border)]">
         <h3 class="text-sm font-semibold text-[var(--color-muted)] uppercase tracking-wider mb-3">Explore More Data</h3>
         <div class="flex flex-wrap gap-2">
-          <a href="https://plainrecalls.com" class="text-sm px-3 py-1.5 rounded-lg bg-[var(--color-card)] border border-[var(--color-border)] hover:border-[var(--color-accent)] transition-colors" target="_blank" rel="noopener">Product Recalls →</a>
-          <a href="https://plaincompare.com" class="text-sm px-3 py-1.5 rounded-lg bg-[var(--color-card)] border border-[var(--color-border)] hover:border-[var(--color-accent)] transition-colors" target="_blank" rel="noopener">Compare Cities →</a>
+          <a href="https://plainrecalls.com" class="text-sm px-3 py-1.5 rounded-lg bg-[var(--color-card)] border border-[var(--color-border)] hover:border-[var(--color-accent)] transition-colors" target="_blank" rel="noopener">Product Recalls &rarr;</a>
+          <a href="https://plaincompare.com" class="text-sm px-3 py-1.5 rounded-lg bg-[var(--color-card)] border border-[var(--color-border)] hover:border-[var(--color-accent)] transition-colors" target="_blank" rel="noopener">Compare Cities &rarr;</a>
         </div>
       </div>
 

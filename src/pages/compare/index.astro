@@ -1,0 +1,94 @@
+---
+export const prerender = false;
+import Base from '../../layouts/Base.astro';
+import Breadcrumb from '../../components/ui/Breadcrumb.astro';
+import CompareSelector from '../../components/CompareSelector.astro';
+import { getPopularModels } from '../../lib/db';
+
+const db = Astro.locals.runtime.env.DB;
+const popular = await getPopularModels(db, 30);
+
+// Generate popular comparison pairs from top models
+const pairs: { nameA: string; nameB: string; url: string }[] = [];
+const pairSet = new Set<string>();
+for (let i = 0; i < Math.min(popular.length, 20); i++) {
+  for (let j = i + 1; j < Math.min(popular.length, 20); j++) {
+    const a = popular[i] as any;
+    const b = popular[j] as any;
+    // Only pair different makes for more interesting comparisons
+    if (a.make_name === b.make_name) continue;
+    const slugs = [a.slug, b.slug].sort();
+    const key = slugs.join('-vs-');
+    if (pairSet.has(key)) continue;
+    pairSet.add(key);
+    pairs.push({
+      nameA: `${a.make_name} ${a.model_name}`,
+      nameB: `${b.make_name} ${b.model_name}`,
+      url: `/compare/${slugs[0]}-vs-${slugs[1]}`,
+    });
+    if (pairs.length >= 20) break;
+  }
+  if (pairs.length >= 20) break;
+}
+
+const title = 'Compare Vehicle Safety Ratings';
+const description = 'Compare any two vehicles side by side. See which has fewer NHTSA complaints, better safety ratings, and fewer recalls. Free head-to-head safety comparison tool.';
+---
+
+<Base
+  title={title}
+  description={description}
+  breadcrumbs={[{ name: 'Home', href: '/' }, { name: 'Compare' }]}
+>
+  <div class="max-w-6xl mx-auto px-4 py-8">
+    <Breadcrumb items={[{ name: 'Home', href: '/' }, { name: 'Compare' }]} />
+
+    <h1 class="text-3xl font-bold text-[var(--color-text)] mb-2 mt-4">Compare Vehicle Safety Ratings</h1>
+    <p class="text-[var(--color-text-secondary)] mb-8 leading-relaxed max-w-2xl">
+      Select two vehicles to compare their NHTSA safety data side by side &mdash; complaints, recalls, crash reports, and safety ratings. All data comes directly from the National Highway Traffic Safety Administration.
+    </p>
+
+    <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-6 mb-10">
+      <CompareSelector />
+    </div>
+
+    {pairs.length > 0 && (
+      <section>
+        <h2 class="text-xl font-bold text-[var(--color-text)] mb-4">Popular Comparisons</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {pairs.map(p => (
+            <a href={p.url} class="flex items-center gap-2 px-4 py-3 text-sm bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg hover:border-[var(--color-primary)] transition-colors">
+              <span class="text-[var(--color-text)] font-medium">{p.nameA}</span>
+              <span class="text-[var(--color-text-secondary)]">vs</span>
+              <span class="text-[var(--color-text)] font-medium">{p.nameB}</span>
+            </a>
+          ))}
+        </div>
+      </section>
+    )}
+
+    <!-- How it works -->
+    <section class="mt-10">
+      <h2 class="text-xl font-bold text-[var(--color-text)] mb-4">How It Works</h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-5">
+          <div class="text-2xl font-bold text-[var(--color-primary)] mb-2">1</div>
+          <h3 class="font-semibold text-[var(--color-text)] mb-1">Select Models</h3>
+          <p class="text-sm text-[var(--color-text-secondary)]">Search for any two vehicles by make or model name from our database of 3,500+ models.</p>
+        </div>
+        <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-5">
+          <div class="text-2xl font-bold text-[var(--color-primary)] mb-2">2</div>
+          <h3 class="font-semibold text-[var(--color-text)] mb-1">Compare Data</h3>
+          <p class="text-sm text-[var(--color-text-secondary)]">See side-by-side safety ratings, complaint counts, recalls, crashes, and injury reports.</p>
+        </div>
+        <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-5">
+          <div class="text-2xl font-bold text-[var(--color-primary)] mb-2">3</div>
+          <h3 class="font-semibold text-[var(--color-text)] mb-1">Make Decisions</h3>
+          <p class="text-sm text-[var(--color-text-secondary)]">Use official NHTSA data to make informed choices about vehicle safety before you buy.</p>
+        </div>
+      </div>
+    </section>
+
+    <p class="text-xs text-[var(--color-text-secondary)] mt-10">Source: National Highway Traffic Safety Administration (NHTSA) complaints and recalls data.</p>
+  </div>
+</Base>

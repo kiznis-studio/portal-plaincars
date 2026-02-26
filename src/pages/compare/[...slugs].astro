@@ -1,0 +1,251 @@
+---
+export const prerender = false;
+import Base from '../../layouts/Base.astro';
+import Breadcrumb from '../../components/ui/Breadcrumb.astro';
+import AdSlot from '../../components/ads/AdSlot.astro';
+import { getModelBySlug, getModelAggregateStats, getModelTopComplaints, getCompareModelsForModel } from '../../lib/db';
+
+const db = Astro.locals.runtime.env.DB;
+const slugPath = Astro.params.slugs || '';
+
+// Parse "model-a-vs-model-b" pattern
+const parts = slugPath.split('-vs-');
+if (parts.length !== 2 || !parts[0] || !parts[1]) {
+  return Astro.redirect('/compare');
+}
+
+const [slugA, slugB] = parts;
+
+// Canonical ordering: alphabetical
+if (slugA > slugB) {
+  return Astro.redirect(`/compare/${slugB}-vs-${slugA}`, 301);
+}
+
+// Same model comparison is nonsensical
+if (slugA === slugB) {
+  return Astro.redirect(`/make/${slugA}`);
+}
+
+// Look up both models
+const [modelA, modelB] = await Promise.all([
+  getModelBySlug(db, slugA),
+  getModelBySlug(db, slugB),
+]);
+
+if (!modelA || !modelB) return Astro.redirect('/404');
+
+// Fetch aggregate stats and top complaints in parallel
+const [statsA, statsB, complaintsA, complaintsB, relatedA, relatedB] = await Promise.all([
+  getModelAggregateStats(db, modelA.model_id),
+  getModelAggregateStats(db, modelB.model_id),
+  getModelTopComplaints(db, modelA.model_id, 5),
+  getModelTopComplaints(db, modelB.model_id, 5),
+  getCompareModelsForModel(db, modelA.model_id, 4),
+  getCompareModelsForModel(db, modelB.model_id, 4),
+]);
+
+if (!statsA || !statsB) return Astro.redirect('/404');
+
+const nameA = `${statsA.make_name} ${statsA.model_name}`;
+const nameB = `${statsB.make_name} ${statsB.model_name}`;
+const title = `${nameA} vs ${nameB}: Safety Comparison`;
+const description = `Compare ${nameA} vs ${nameB} safety ratings, complaints, and recalls. See which vehicle has fewer NHTSA complaints and higher safety scores.`;
+
+// Helper to determine winner for a stat (lower is better for most, higher for rating)
+function winner(valA: number | null, valB: number | null, higherIsBetter = false): 'a' | 'b' | 'tie' {
+  if (valA == null || valB == null) return 'tie';
+  if (valA === valB) return 'tie';
+  if (higherIsBetter) return valA > valB ? 'a' : 'b';
+  return valA < valB ? 'a' : 'b';
+}
+
+const comparisons = [
+  { label: 'Avg Safety Rating', valA: statsA.avg_rating, valB: statsB.avg_rating, fmt: (v: any) => v != null ? `${v}/5` : 'N/A', higherIsBetter: true },
+  { label: 'Total Complaints', valA: statsA.total_complaints, valB: statsB.total_complaints, fmt: (v: any) => v?.toLocaleString() ?? '0' },
+  { label: 'Total Recalls', valA: statsA.total_recalls, valB: statsB.total_recalls, fmt: (v: any) => v?.toLocaleString() ?? '0' },
+  { label: 'Crashes Reported', valA: statsA.total_crashes, valB: statsB.total_crashes, fmt: (v: any) => v?.toLocaleString() ?? '0' },
+  { label: 'Fires Reported', valA: statsA.total_fires, valB: statsB.total_fires, fmt: (v: any) => v?.toLocaleString() ?? '0' },
+  { label: 'Injuries Reported', valA: statsA.total_injuries, valB: statsB.total_injuries, fmt: (v: any) => v?.toLocaleString() ?? '0' },
+  { label: 'Deaths Reported', valA: statsA.total_deaths, valB: statsB.total_deaths, fmt: (v: any) => v?.toLocaleString() ?? '0' },
+  { label: 'Years on Market', valA: statsA.year_count, valB: statsB.year_count, fmt: (v: any) => `${v} years`, higherIsBetter: true },
+];
+
+// Collect all unique complaint components across both models
+const allComponents = [...new Set([...complaintsA.map(c => c.component), ...complaintsB.map(c => c.component)])];
+const complaintMapA = Object.fromEntries(complaintsA.map(c => [c.component, c.count]));
+const complaintMapB = Object.fromEntries(complaintsB.map(c => [c.component, c.count]));
+const maxComplaintCount = Math.max(...complaintsA.map(c => c.count), ...complaintsB.map(c => c.count), 1);
+
+// FAQ
+const faqItems = [
+  { q: `Which is safer, ${nameA} or ${nameB}?`, a: `${nameA} has ${statsA.total_complaints.toLocaleString()} total NHTSA complaints with ${statsA.total_crashes} crashes, while ${nameB} has ${statsB.total_complaints.toLocaleString()} complaints with ${statsB.total_crashes} crashes. ${statsA.avg_rating != null && statsB.avg_rating != null ? `Average safety ratings are ${statsA.avg_rating}/5 vs ${statsB.avg_rating}/5 respectively.` : 'Review individual model years for specific safety ratings.'}` },
+  { q: `How many recalls does ${nameA} have compared to ${nameB}?`, a: `${nameA} has ${statsA.total_recalls.toLocaleString()} recalls across ${statsA.year_count} model years, while ${nameB} has ${statsB.total_recalls.toLocaleString()} recalls across ${statsB.year_count} model years.` },
+  { q: `What are the most common problems with ${nameA}?`, a: complaintsA.length > 0 ? `The most commonly reported issues for ${nameA} are: ${complaintsA.map(c => `${c.component} (${c.count} complaints)`).join(', ')}.` : `No complaint category data available for ${nameA}.` },
+  { q: `What are the most common problems with ${nameB}?`, a: complaintsB.length > 0 ? `The most commonly reported issues for ${nameB} are: ${complaintsB.map(c => `${c.component} (${c.count} complaints)`).join(', ')}.` : `No complaint category data available for ${nameB}.` },
+];
+
+const faqSchema = JSON.stringify({
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: faqItems.map(f => ({
+    '@type': 'Question',
+    name: f.q,
+    acceptedAnswer: { '@type': 'Answer', text: f.a },
+  })),
+});
+
+// Build "also compare" suggestions
+const suggestionsA = relatedA.filter((m: any) => m.slug !== modelB.slug).slice(0, 3);
+const suggestionsB = relatedB.filter((m: any) => m.slug !== modelA.slug).slice(0, 3);
+
+function compareUrl(slugX: string, slugY: string): string {
+  return slugX < slugY ? `/compare/${slugX}-vs-${slugY}` : `/compare/${slugY}-vs-${slugX}`;
+}
+---
+
+<Base
+  title={title}
+  description={description}
+  breadcrumbs={[{ name: 'Home', href: '/' }, { name: 'Compare', href: '/compare' }, { name: `${nameA} vs ${nameB}` }]}
+>
+  <div class="max-w-6xl mx-auto px-4 py-8">
+    <Breadcrumb items={[{ name: 'Home', href: '/' }, { name: 'Compare', href: '/compare' }, { name: `${nameA} vs ${nameB}` }]} />
+
+    <h1 class="text-3xl font-bold text-[var(--color-text)] mb-2 mt-4">{nameA} vs {nameB}</h1>
+    <p class="text-[var(--color-text-secondary)] mb-8 leading-relaxed">
+      Head-to-head safety comparison between the <strong>{nameA}</strong> ({statsA.first_year}&ndash;{statsA.last_year}) and the <strong>{nameB}</strong> ({statsB.first_year}&ndash;{statsB.last_year}) based on NHTSA complaint and recall data.
+    </p>
+
+    <!-- Side-by-side stat comparison -->
+    <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg overflow-hidden mb-8">
+      <div class="grid grid-cols-3 border-b border-[var(--color-border)] bg-[var(--color-surface-alt)]">
+        <div class="px-4 py-3 text-sm font-semibold text-[var(--color-primary)] text-center">
+          <a href={`/make/${modelA.slug}`} class="hover:underline">{nameA}</a>
+        </div>
+        <div class="px-4 py-3 text-sm font-medium text-[var(--color-text-secondary)] text-center">Metric</div>
+        <div class="px-4 py-3 text-sm font-semibold text-[var(--color-primary)] text-center">
+          <a href={`/make/${modelB.slug}`} class="hover:underline">{nameB}</a>
+        </div>
+      </div>
+      {comparisons.map(row => {
+        const w = winner(row.valA, row.valB, row.higherIsBetter);
+        return (
+          <div class="grid grid-cols-3 border-b border-[var(--color-border)] last:border-b-0">
+            <div class:list={['px-4 py-3 text-center text-sm font-medium', w === 'a' ? 'text-teal-600 dark:text-teal-400 bg-teal-500/5' : 'text-[var(--color-text)]']}>
+              {row.fmt(row.valA)}
+              {w === 'a' && <span class="ml-1 text-xs">&#x2714;</span>}
+            </div>
+            <div class="px-4 py-3 text-center text-xs text-[var(--color-text-secondary)] self-center">{row.label}</div>
+            <div class:list={['px-4 py-3 text-center text-sm font-medium', w === 'b' ? 'text-teal-600 dark:text-teal-400 bg-teal-500/5' : 'text-[var(--color-text)]']}>
+              {row.fmt(row.valB)}
+              {w === 'b' && <span class="ml-1 text-xs">&#x2714;</span>}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+
+    <AdSlot slot="mid" />
+
+    <!-- Top complaint categories comparison -->
+    {allComponents.length > 0 && (
+      <div class="mb-8">
+        <h2 class="text-xl font-bold text-[var(--color-text)] mb-4">Top Complaint Categories</h2>
+        <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-4 space-y-4">
+          {allComponents.slice(0, 8).map(comp => {
+            const countA = complaintMapA[comp] || 0;
+            const countB = complaintMapB[comp] || 0;
+            const pctA = (countA / maxComplaintCount) * 100;
+            const pctB = (countB / maxComplaintCount) * 100;
+            return (
+              <div>
+                <div class="text-xs font-medium text-[var(--color-text-secondary)] mb-1">{comp}</div>
+                <div class="flex items-center gap-2">
+                  <span class="text-xs w-10 text-right text-[var(--color-text-secondary)]">{countA}</span>
+                  <div class="flex-1 flex gap-1 items-center">
+                    <div class="flex-1 h-3 bg-[var(--color-surface-alt)] rounded-full overflow-hidden flex justify-end">
+                      <div class="h-full bg-[var(--color-primary)] rounded-full" style={`width: ${pctA}%`}></div>
+                    </div>
+                    <div class="flex-1 h-3 bg-[var(--color-surface-alt)] rounded-full overflow-hidden">
+                      <div class="h-full bg-[var(--color-accent)] rounded-full" style={`width: ${pctB}%`}></div>
+                    </div>
+                  </div>
+                  <span class="text-xs w-10 text-[var(--color-text-secondary)]">{countB}</span>
+                </div>
+              </div>
+            );
+          })}
+          <div class="flex justify-between text-xs text-[var(--color-text-secondary)] pt-2 border-t border-[var(--color-border)]">
+            <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-[var(--color-primary)] inline-block"></span> {nameA}</span>
+            <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-[var(--color-accent)] inline-block"></span> {nameB}</span>
+          </div>
+        </div>
+      </div>
+    )}
+
+    <!-- Also compare -->
+    {(suggestionsA.length > 0 || suggestionsB.length > 0) && (
+      <div class="mb-8">
+        <h2 class="text-xl font-bold text-[var(--color-text)] mb-4">Also Compare</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {suggestionsA.length > 0 && (
+            <div>
+              <h3 class="text-sm font-medium text-[var(--color-text-secondary)] mb-2">Compare {nameA} with:</h3>
+              <div class="space-y-2">
+                {suggestionsA.map((m: any) => (
+                  <a href={compareUrl(modelA.slug, m.slug)} class="block px-3 py-2 text-sm bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg hover:border-[var(--color-primary)] transition-colors text-[var(--color-primary)]">
+                    {nameA} vs {m.make_name} {m.model_name} &rarr;
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+          {suggestionsB.length > 0 && (
+            <div>
+              <h3 class="text-sm font-medium text-[var(--color-text-secondary)] mb-2">Compare {nameB} with:</h3>
+              <div class="space-y-2">
+                {suggestionsB.map((m: any) => (
+                  <a href={compareUrl(modelB.slug, m.slug)} class="block px-3 py-2 text-sm bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg hover:border-[var(--color-primary)] transition-colors text-[var(--color-primary)]">
+                    {nameB} vs {m.make_name} {m.model_name} &rarr;
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    )}
+
+    <!-- Compare another pair -->
+    <div class="mb-8 p-6 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg">
+      <h2 class="text-lg font-semibold text-[var(--color-text)] mb-3">Compare Another Pair</h2>
+      <p class="text-sm text-[var(--color-text-secondary)] mb-4">Search for any two vehicle models to compare their safety records side by side.</p>
+      <a href="/compare" class="inline-block px-4 py-2 text-sm font-medium bg-[var(--color-primary)] text-white rounded-lg hover:opacity-90 transition-opacity">Go to Compare Tool &rarr;</a>
+    </div>
+
+    <!-- FAQ -->
+    <section class="mb-8">
+      <h2 class="text-lg font-semibold text-[var(--color-text)] mb-4">Frequently Asked Questions</h2>
+      <div class="space-y-3">
+        {faqItems.map(f => (
+          <details class="group bg-[var(--color-surface)] rounded-lg border border-[var(--color-border)]">
+            <summary class="flex items-center justify-between p-4 cursor-pointer font-medium text-[var(--color-text)]">{f.q}<span class="ml-2 text-[var(--color-text-secondary)] group-open:rotate-180 transition-transform">&#x25BC;</span></summary>
+            <div class="px-4 pb-4 text-[var(--color-text-secondary)] text-sm">{f.a}</div>
+          </details>
+        ))}
+      </div>
+    </section>
+
+    <!-- Cross-Portal Links -->
+    <div class="mt-10 pt-6 border-t border-[var(--color-border)]">
+      <h3 class="text-sm font-semibold text-[var(--color-muted)] uppercase tracking-wider mb-3">Explore More Data</h3>
+      <div class="flex flex-wrap gap-2">
+        <a href="https://plainrecalls.com" class="text-sm px-3 py-1.5 rounded-lg bg-[var(--color-card)] border border-[var(--color-border)] hover:border-[var(--color-accent)] transition-colors" target="_blank" rel="noopener">Product Recalls &rarr;</a>
+        <a href="https://plaincompare.com" class="text-sm px-3 py-1.5 rounded-lg bg-[var(--color-card)] border border-[var(--color-border)] hover:border-[var(--color-accent)] transition-colors" target="_blank" rel="noopener">Compare Cities &rarr;</a>
+      </div>
+    </div>
+
+    <p class="text-xs text-[var(--color-text-secondary)] mt-6">Source: National Highway Traffic Safety Administration (NHTSA) complaints and recalls data.</p>
+  </div>
+  <script type="application/ld+json" set:html={faqSchema} />
+</Base>

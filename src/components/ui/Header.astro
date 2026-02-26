@@ -18,6 +18,7 @@ const isActive = (path: string) => currentPath === path || currentPath.startsWit
 
       <nav class="hidden md:flex items-center gap-6 text-sm font-medium">
         <a href="/make" class:list={['hover:text-[var(--color-primary)] transition-colors', isActive('/make') ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-secondary)]']}>Makes</a>
+        <a href="/compare" class:list={['hover:text-[var(--color-primary)] transition-colors', isActive('/compare') ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-secondary)]']}>Compare</a>
         <a href="/rankings" class:list={['hover:text-[var(--color-primary)] transition-colors', isActive('/rankings') ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-secondary)]']}>Rankings</a>
         <a href="/recall" class:list={['hover:text-[var(--color-primary)] transition-colors', isActive('/recall') ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-secondary)]']}>Recalls</a>
         <a href="/states" class:list={['hover:text-[var(--color-primary)] transition-colors', isActive('/states') ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-secondary)]']}>States</a>
@@ -47,6 +48,7 @@ const isActive = (path: string) => currentPath === path || currentPath.startsWit
     <nav id="mobile-menu" class="hidden md:hidden pb-4 border-t border-[var(--color-border)]">
       <div class="flex flex-col gap-2 pt-3 text-sm font-medium">
         <a href="/make" class:list={['px-3 py-2 rounded-lg transition-colors', isActive('/make') ? 'text-[var(--color-primary)] bg-[var(--color-surface)]' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-surface)]']}>Makes</a>
+        <a href="/compare" class:list={['px-3 py-2 rounded-lg transition-colors', isActive('/compare') ? 'text-[var(--color-primary)] bg-[var(--color-surface)]' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-surface)]']}>Compare</a>
         <a href="/rankings" class:list={['px-3 py-2 rounded-lg transition-colors', isActive('/rankings') ? 'text-[var(--color-primary)] bg-[var(--color-surface)]' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-surface)]']}>Rankings</a>
         <a href="/recall" class:list={['px-3 py-2 rounded-lg transition-colors', isActive('/recall') ? 'text-[var(--color-primary)] bg-[var(--color-surface)]' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-surface)]']}>Recalls</a>
         <a href="/states" class:list={['px-3 py-2 rounded-lg transition-colors', isActive('/states') ? 'text-[var(--color-primary)] bg-[var(--color-surface)]' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-surface)]']}>States</a>

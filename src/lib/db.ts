@@ -365,6 +365,84 @@ export async function getMostComplainedInState(db: D1Database, stateCode: string
   return results;
 }
 
+// --- Compare ---
+
+export interface ModelAggregateStats {
+  model_id: string;
+  make_name: string;
+  model_name: string;
+  slug: string;
+  year_count: number;
+  first_year: number;
+  last_year: number;
+  avg_rating: number | null;
+  total_complaints: number;
+  total_recalls: number;
+  total_crashes: number;
+  total_fires: number;
+  total_injuries: number;
+  total_deaths: number;
+}
+
+export async function getModelAggregateStats(db: D1Database, modelId: string): Promise<ModelAggregateStats | null> {
+  return db.prepare(`
+    SELECT
+      m.model_id, mk.make_name, m.model_name, m.slug,
+      COUNT(DISTINCT my.year) as year_count,
+      MIN(my.year) as first_year, MAX(my.year) as last_year,
+      ROUND(AVG(CASE WHEN my.overall_rating IS NOT NULL THEN CAST(my.overall_rating AS REAL) END), 1) as avg_rating,
+      SUM(my.complaint_count) as total_complaints,
+      SUM(my.recall_count) as total_recalls,
+      SUM(my.crash_count) as total_crashes,
+      SUM(my.fire_count) as total_fires,
+      SUM(my.injury_count) as total_injuries,
+      SUM(my.death_count) as total_deaths
+    FROM models m
+    JOIN makes mk ON m.make_id = mk.make_id
+    JOIN model_years my ON my.model_id = m.model_id
+    WHERE m.model_id = ?
+    GROUP BY m.model_id
+  `).bind(modelId).first<ModelAggregateStats>();
+}
+
+export async function getModelTopComplaints(db: D1Database, modelId: string, limit: number = 5) {
+  const { results } = await db.prepare(`
+    SELECT component, SUM(complaint_count) as count
+    FROM complaint_stats
+    WHERE my_id IN (SELECT my_id FROM model_years WHERE model_id = ?)
+    GROUP BY component
+    ORDER BY count DESC
+    LIMIT ?
+  `).bind(modelId, limit).all<{ component: string; count: number }>();
+  return results;
+}
+
+export async function getPopularModels(db: D1Database, limit: number = 50) {
+  const { results } = await db.prepare(`
+    SELECT m.model_id, mk.make_name, m.model_name, m.slug,
+           COUNT(my.my_id) as year_count, m.complaint_count as total_complaints
+    FROM models m
+    JOIN makes mk ON m.make_id = mk.make_id
+    JOIN model_years my ON my.model_id = m.model_id
+    GROUP BY m.model_id
+    ORDER BY year_count DESC, m.complaint_count DESC
+    LIMIT ?
+  `).bind(limit).all();
+  return results;
+}
+
+export async function getCompareModelsForModel(db: D1Database, modelId: string, limit: number = 5) {
+  const { results } = await db.prepare(`
+    SELECT m.model_id, mk.make_name, m.model_name, m.slug, m.complaint_count
+    FROM models m
+    JOIN makes mk ON m.make_id = mk.make_id
+    WHERE m.model_id != ?
+    ORDER BY m.complaint_count DESC
+    LIMIT ?
+  `).bind(modelId, limit).all();
+  return results;
+}
+
 // --- Search ---
 
 export async function searchModels(db: D1Database, query: string, limit: number = 15) {
