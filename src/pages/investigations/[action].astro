@@ -1,0 +1,224 @@
+---
+export const prerender = false;
+import Base from '../../layouts/Base.astro';
+import Breadcrumb from '../../components/ui/Breadcrumb.astro';
+import AdSlot from '../../components/ads/AdSlot.astro';
+import { getInvestigationById, getInvestigationsByMakeId, INVESTIGATION_TYPES } from '../../lib/db';
+
+const db = Astro.locals.runtime.env.DB;
+const nhtsaId = Astro.params.action || '';
+
+const inv = await getInvestigationById(db, nhtsaId);
+if (!inv) return Astro.redirect('/404');
+
+// Get related investigations for the same make (if matched)
+let relatedInvestigations: any[] = [];
+if (inv.make_id) {
+  const makeInvs = await getInvestigationsByMakeId(db, inv.make_id);
+  relatedInvestigations = makeInvs.filter(r => r.nhtsa_id !== inv.nhtsa_id).slice(0, 5);
+}
+
+const breadcrumbs = [
+  { name: 'Home', href: '/' },
+  { name: 'Investigations', href: '/investigations/' },
+  { name: nhtsaId },
+];
+
+function statusLabel(s: string) {
+  return s === 'O' ? 'Open' : 'Closed';
+}
+function statusColor(s: string) {
+  return s === 'O' ? 'text-amber-600 dark:text-amber-400' : 'text-teal-600 dark:text-teal-400';
+}
+function statusBg(s: string) {
+  return s === 'O' ? 'bg-amber-500/10' : 'bg-teal-500/10';
+}
+function typeLabel(t: string) {
+  return INVESTIGATION_TYPES[t] || t;
+}
+function formatDate(d: string | null) {
+  if (!d) return '—';
+  return d;
+}
+
+const vehicleLabel = inv.make_name
+  ? inv.make_name + (inv.model_name ? ' ' + inv.model_name : '')
+  : null;
+
+const title = inv.subject
+  ? inv.subject + ' — NHTSA Investigation ' + nhtsaId
+  : 'NHTSA Investigation ' + nhtsaId;
+
+const description = 'NHTSA ' + typeLabel(inv.investigation_type) + ' investigation ' + nhtsaId
+  + (inv.status === 'O' ? ' (Open)' : ' (Closed)')
+  + (vehicleLabel ? ' involving ' + vehicleLabel : '')
+  + '. ' + (inv.description ? inv.description.slice(0, 120) + '...' : 'View full investigation details.');
+
+const faqSchema = JSON.stringify({
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: [
+    {
+      '@type': 'Question',
+      name: 'What is NHTSA investigation ' + nhtsaId + '?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'This is a ' + typeLabel(inv.investigation_type) + ' (' + inv.investigation_type + ') investigation ' + (inv.status === 'O' ? 'currently open' : 'now closed') + (vehicleLabel ? ' related to ' + vehicleLabel : '') + '. It was opened on ' + formatDate(inv.open_date) + '.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'What does a ' + typeLabel(inv.investigation_type) + ' mean?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: inv.investigation_type === 'PE'
+          ? 'A Preliminary Evaluation (PE) is the initial assessment of a potential safety defect, typically opened after receiving multiple consumer complaints about similar issues.'
+          : inv.investigation_type === 'EA'
+            ? 'An Engineering Analysis (EA) is an in-depth technical evaluation that may include testing, data collection from manufacturers, and detailed defect analysis.'
+            : inv.investigation_type === 'RQ'
+              ? 'A Recall Query (RQ) evaluates the effectiveness of a previously issued recall remedy, often triggered when complaints persist after a recall.'
+              : 'This investigation type evaluates potential vehicle safety defects.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'Is this investigation still active?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: inv.status === 'O'
+          ? 'Yes, this investigation is currently open. The latest activity was on ' + formatDate(inv.latest_activity_date) + '.'
+          : 'No, this investigation has been closed. It was opened on ' + formatDate(inv.open_date) + '.',
+      },
+    },
+  ],
+});
+---
+
+<Base
+  title={title}
+  description={description}
+  breadcrumbs={breadcrumbs}
+>
+  <div class="max-w-4xl mx-auto px-4 py-8">
+    <Breadcrumb items={breadcrumbs} />
+
+    {/* Header */}
+    <div class="mt-4 mb-8">
+      <div class="flex items-center gap-3 mb-3 flex-wrap">
+        <span class="text-sm font-mono text-[var(--color-primary)]">{nhtsaId}</span>
+        <span class="text-xs px-2 py-0.5 rounded bg-[var(--color-surface-alt)] text-[var(--color-text-secondary)]">{typeLabel(inv.investigation_type)}</span>
+        <span class={'text-xs font-semibold px-2 py-0.5 rounded ' + statusBg(inv.status) + ' ' + statusColor(inv.status)}>{statusLabel(inv.status)}</span>
+      </div>
+      <h1 class="text-2xl md:text-3xl font-bold text-[var(--color-text)] mb-3">{inv.subject}</h1>
+      {vehicleLabel && (
+        <p class="text-sm text-[var(--color-text-secondary)]">
+          Vehicle: <span class="font-medium text-[var(--color-text)]">{vehicleLabel}</span>
+          {inv.model_id && (
+            <a href={'/make/' + inv.model_id} class="text-[var(--color-primary)] hover:underline ml-2">View model page</a>
+          )}
+        </p>
+      )}
+    </div>
+
+    {/* Key Details */}
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+      <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-4">
+        <div class="text-xs text-[var(--color-text-secondary)] mb-1">Status</div>
+        <div class={'text-sm font-semibold ' + statusColor(inv.status)}>{statusLabel(inv.status)}</div>
+      </div>
+      <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-4">
+        <div class="text-xs text-[var(--color-text-secondary)] mb-1">Type</div>
+        <div class="text-sm font-semibold text-[var(--color-text)]">{typeLabel(inv.investigation_type)}</div>
+      </div>
+      <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-4">
+        <div class="text-xs text-[var(--color-text-secondary)] mb-1">Opened</div>
+        <div class="text-sm font-semibold text-[var(--color-text)]">{formatDate(inv.open_date)}</div>
+      </div>
+      <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-4">
+        <div class="text-xs text-[var(--color-text-secondary)] mb-1">Latest Activity</div>
+        <div class="text-sm font-semibold text-[var(--color-text)]">{formatDate(inv.latest_activity_date)}</div>
+      </div>
+    </div>
+
+    <AdSlot slot="mid" />
+
+    {/* Description */}
+    {inv.description && (
+      <section class="mt-6 mb-8">
+        <h2 class="text-lg font-semibold text-[var(--color-text)] mb-3">Investigation Summary</h2>
+        <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-5">
+          <p class="text-sm text-[var(--color-text-secondary)] leading-relaxed whitespace-pre-line">{inv.description}</p>
+        </div>
+      </section>
+    )}
+
+    {/* Investigation Type Explanation */}
+    <section class="mb-8">
+      <h2 class="text-lg font-semibold text-[var(--color-text)] mb-3">About This Investigation Type</h2>
+      <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-5">
+        {inv.investigation_type === 'PE' && (
+          <p class="text-sm text-[var(--color-text-secondary)] leading-relaxed">
+            A <strong class="text-[var(--color-text)]">Preliminary Evaluation (PE)</strong> is the first phase of NHTSA's investigation process. It is opened when the agency identifies a potential safety defect pattern, usually triggered by consumer complaints, manufacturer reports, or field monitoring. During a PE, NHTSA gathers information to determine whether a formal engineering analysis is warranted.
+          </p>
+        )}
+        {inv.investigation_type === 'EA' && (
+          <p class="text-sm text-[var(--color-text-secondary)] leading-relaxed">
+            An <strong class="text-[var(--color-text)]">Engineering Analysis (EA)</strong> is the in-depth phase following a Preliminary Evaluation. NHTSA engineers conduct testing, collect data from manufacturers, and perform detailed technical analysis to determine whether a safety defect exists. An EA may lead to a voluntary recall by the manufacturer or, in rare cases, a mandatory recall order.
+          </p>
+        )}
+        {inv.investigation_type === 'RQ' && (
+          <p class="text-sm text-[var(--color-text-secondary)] leading-relaxed">
+            A <strong class="text-[var(--color-text)]">Recall Query (RQ)</strong> evaluates the effectiveness of a previously issued recall. NHTSA opens an RQ when consumer complaints suggest that a recall remedy may not be adequately addressing the safety issue, or when the recall completion rate appears insufficient.
+          </p>
+        )}
+        {inv.investigation_type === 'DP' && (
+          <p class="text-sm text-[var(--color-text-secondary)] leading-relaxed">
+            A <strong class="text-[var(--color-text)]">Defect Petition (DP)</strong> is initiated when an individual or organization formally petitions NHTSA to investigate a potential safety defect. NHTSA reviews the petition and decides whether to open an investigation.
+          </p>
+        )}
+        {inv.investigation_type === 'AQ' && (
+          <p class="text-sm text-[var(--color-text-secondary)] leading-relaxed">
+            An <strong class="text-[var(--color-text)]">Audit Query (AQ)</strong> is conducted to verify manufacturer compliance with safety standards and recall requirements.
+          </p>
+        )}
+      </div>
+    </section>
+
+    {/* Related Investigations */}
+    {relatedInvestigations.length > 0 && (
+      <section class="mb-8">
+        <h2 class="text-lg font-semibold text-[var(--color-text)] mb-3">
+          Other {inv.make_name} Investigations
+        </h2>
+        <div class="space-y-2">
+          {relatedInvestigations.map(r => (
+            <a href={'/investigations/' + r.nhtsa_id} class="block bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-3 hover:border-[var(--color-primary)] transition-colors">
+              <div class="flex items-start justify-between gap-3">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="text-xs font-mono text-[var(--color-primary)]">{r.nhtsa_id}</span>
+                  <span class="text-xs px-2 py-0.5 rounded bg-[var(--color-surface-alt)] text-[var(--color-text-secondary)]">{typeLabel(r.investigation_type)}</span>
+                  <span class={'text-xs font-medium ' + statusColor(r.status)}>{statusLabel(r.status)}</span>
+                </div>
+                <span class="text-xs text-[var(--color-text-secondary)] whitespace-nowrap">{formatDate(r.open_date)}</span>
+              </div>
+              <p class="text-sm text-[var(--color-text)] mt-1">{r.subject}</p>
+            </a>
+          ))}
+        </div>
+        <div class="mt-3">
+          <a href="/investigations/" class="text-sm text-[var(--color-primary)] hover:underline">View all investigations</a>
+        </div>
+      </section>
+    )}
+
+    {/* NHTSA Link */}
+    <div class="mt-8 p-4 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)]">
+      <p class="text-xs text-[var(--color-text-secondary)]">
+        Data from NHTSA Office of Defects Investigation. PlainCars does not rate or recommend vehicles.
+        <a href="/about" class="text-[var(--color-primary)] hover:underline">Learn more</a>.
+      </p>
+    </div>
+  </div>
+
+  <script type="application/ld+json" set:html={faqSchema} />
+</Base>

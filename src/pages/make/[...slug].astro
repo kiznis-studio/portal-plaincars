@@ -3,7 +3,7 @@ export const prerender = false;
 import Base from '../../layouts/Base.astro';
 import Breadcrumb from '../../components/ui/Breadcrumb.astro';
 import AdSlot from '../../components/ads/AdSlot.astro';
-import { getMakeBySlug, getModelsByMake, getModelBySlug, getModelYears, getModelYearById, getComplaintStats, getComplaints, getRecallsByModelYear, getCompareModelsForModel } from '../../lib/db';
+import { getMakeBySlug, getModelsByMake, getModelBySlug, getModelYears, getModelYearById, getComplaintStats, getComplaints, getRecallsByModelYear, getCompareModelsForModel, getInvestigationsByMakeId, getInvestigationsByModelId, INVESTIGATION_TYPES } from '../../lib/db';
 
 const db = Astro.locals.runtime.env.DB;
 const slugPath = Astro.params.slug || '';
@@ -61,6 +61,18 @@ if (pageType === 'model' && model) {
 } else if (pageType === 'year' && model) {
   compareModels = await getCompareModelsForModel(db, model.model_id, 4);
 }
+
+// Fetch investigations for make/model pages
+let investigations: any[] = [];
+if (pageType === 'make' && make) {
+  investigations = await getInvestigationsByMakeId(db, make.make_id);
+} else if ((pageType === 'model' || pageType === 'year') && model) {
+  investigations = await getInvestigationsByModelId(db, model.model_id);
+  if (investigations.length === 0 && make) {
+    investigations = await getInvestigationsByMakeId(db, make.make_id);
+  }
+}
+const openInvestigations = investigations.filter(i => i.status === 'O');
 
 // FAQ generation
 const faqItems: { q: string; a: string }[] = [];
@@ -155,6 +167,35 @@ const faqSchema = faqItems.length > 0 ? JSON.stringify({
           </tbody>
         </table>
       </div>
+
+      {investigations.length > 0 && (
+        <section class="mt-8 mb-8">
+          <h2 class="text-xl font-bold text-[var(--color-text)] mb-4">
+            NHTSA Investigations
+            {openInvestigations.length > 0 && (
+              <span class="ml-2 text-sm font-medium text-amber-600 dark:text-amber-400">{openInvestigations.length} Open</span>
+            )}
+          </h2>
+          <div class="space-y-2">
+            {investigations.slice(0, 10).map(inv => (
+              <a href={'/investigations/' + inv.nhtsa_id} class="block bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-3 hover:border-[var(--color-primary)] transition-colors">
+                <div class="flex items-center gap-2 flex-wrap mb-1">
+                  <span class="text-xs font-mono text-[var(--color-primary)]">{inv.nhtsa_id}</span>
+                  <span class="text-xs px-2 py-0.5 rounded bg-[var(--color-surface-alt)] text-[var(--color-text-secondary)]">{INVESTIGATION_TYPES[inv.investigation_type] || inv.investigation_type}</span>
+                  <span class={'text-xs font-medium ' + (inv.status === 'O' ? 'text-amber-600 dark:text-amber-400' : 'text-teal-600 dark:text-teal-400')}>{inv.status === 'O' ? 'Open' : 'Closed'}</span>
+                  <span class="text-xs text-[var(--color-text-secondary)]">{inv.open_date || ''}</span>
+                </div>
+                <p class="text-sm text-[var(--color-text)]">{inv.subject}</p>
+              </a>
+            ))}
+          </div>
+          {investigations.length > 10 && (
+            <p class="mt-3 text-sm text-[var(--color-primary)]">
+              <a href="/investigations/" class="hover:underline">View all {investigations.length} investigations</a>
+            </p>
+          )}
+        </section>
+      )}
 
       {faqItems.length > 0 && (
         <section class="mb-8">
@@ -278,6 +319,35 @@ const faqSchema = faqItems.length > 0 ? JSON.stringify({
             })}
           </div>
         </div>
+      )}
+
+      {investigations.length > 0 && (
+        <section class="mt-8 mb-8">
+          <h2 class="text-xl font-bold text-[var(--color-text)] mb-4">
+            NHTSA Investigations
+            {openInvestigations.length > 0 && (
+              <span class="ml-2 text-sm font-medium text-amber-600 dark:text-amber-400">{openInvestigations.length} Open</span>
+            )}
+          </h2>
+          <div class="space-y-2">
+            {investigations.slice(0, 10).map(inv => (
+              <a href={'/investigations/' + inv.nhtsa_id} class="block bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-3 hover:border-[var(--color-primary)] transition-colors">
+                <div class="flex items-center gap-2 flex-wrap mb-1">
+                  <span class="text-xs font-mono text-[var(--color-primary)]">{inv.nhtsa_id}</span>
+                  <span class="text-xs px-2 py-0.5 rounded bg-[var(--color-surface-alt)] text-[var(--color-text-secondary)]">{INVESTIGATION_TYPES[inv.investigation_type] || inv.investigation_type}</span>
+                  <span class={'text-xs font-medium ' + (inv.status === 'O' ? 'text-amber-600 dark:text-amber-400' : 'text-teal-600 dark:text-teal-400')}>{inv.status === 'O' ? 'Open' : 'Closed'}</span>
+                  <span class="text-xs text-[var(--color-text-secondary)]">{inv.open_date || ''}</span>
+                </div>
+                <p class="text-sm text-[var(--color-text)]">{inv.subject}</p>
+              </a>
+            ))}
+          </div>
+          {investigations.length > 10 && (
+            <p class="mt-3 text-sm text-[var(--color-primary)]">
+              <a href="/investigations/" class="hover:underline">View all {investigations.length} investigations</a>
+            </p>
+          )}
+        </section>
       )}
 
       {faqItems.length > 0 && (
@@ -459,6 +529,34 @@ const faqSchema = faqItems.length > 0 ? JSON.stringify({
             ))}
           </div>
         </div>
+      )}
+
+      {investigations.length > 0 && (
+        <section class="mt-8 mb-8">
+          <h2 class="text-lg font-semibold text-[var(--color-text)] mb-4">
+            NHTSA Investigations
+            {openInvestigations.length > 0 && (
+              <span class="ml-2 text-sm font-medium text-amber-600 dark:text-amber-400">{openInvestigations.length} Open</span>
+            )}
+          </h2>
+          <div class="space-y-2">
+            {investigations.slice(0, 5).map(inv => (
+              <a href={'/investigations/' + inv.nhtsa_id} class="block bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-3 hover:border-[var(--color-primary)] transition-colors">
+                <div class="flex items-center gap-2 flex-wrap mb-1">
+                  <span class="text-xs font-mono text-[var(--color-primary)]">{inv.nhtsa_id}</span>
+                  <span class="text-xs px-2 py-0.5 rounded bg-[var(--color-surface-alt)] text-[var(--color-text-secondary)]">{INVESTIGATION_TYPES[inv.investigation_type] || inv.investigation_type}</span>
+                  <span class={'text-xs font-medium ' + (inv.status === 'O' ? 'text-amber-600 dark:text-amber-400' : 'text-teal-600 dark:text-teal-400')}>{inv.status === 'O' ? 'Open' : 'Closed'}</span>
+                </div>
+                <p class="text-sm text-[var(--color-text)]">{inv.subject}</p>
+              </a>
+            ))}
+          </div>
+          {investigations.length > 5 && (
+            <p class="mt-3 text-sm text-[var(--color-primary)]">
+              <a href="/investigations/" class="hover:underline">View all investigations</a>
+            </p>
+          )}
+        </section>
       )}
 
       {faqItems.length > 0 && (

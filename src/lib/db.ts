@@ -80,6 +80,23 @@ export interface Recall {
   report_date: string;
 }
 
+export interface Investigation {
+  nhtsa_id: string;
+  subject: string;
+  investigation_type: string;
+  status: string;
+  open_date: string | null;
+  latest_activity_date: string | null;
+  description: string | null;
+  make_id: string | null;
+  model_id: string | null;
+}
+
+export interface InvestigationWithNames extends Investigation {
+  make_name?: string;
+  model_name?: string;
+}
+
 export interface ModelWithMake extends Model {
   make_name?: string;
 }
@@ -443,6 +460,30 @@ export async function getCompareModelsForModel(db: D1Database, modelId: string, 
   return results;
 }
 
+// --- Reliability ---
+
+export async function getModelsForReliability(db: D1Database, limit = 500) {
+  const { results } = await db.prepare(`
+    SELECT m.model_id, mk.make_name, m.model_name, m.slug,
+           COUNT(my.my_id) as year_count,
+           MIN(my.year) as first_year, MAX(my.year) as last_year,
+           SUM(my.complaint_count) as total_complaints,
+           SUM(my.recall_count) as total_recalls,
+           SUM(my.crash_count) as total_crashes,
+           SUM(my.fire_count) as total_fires,
+           SUM(my.injury_count) as total_injuries,
+           SUM(my.death_count) as total_deaths
+    FROM models m
+    JOIN makes mk ON mk.make_id = m.make_id
+    JOIN model_years my ON my.model_id = m.model_id
+    GROUP BY m.model_id
+    HAVING year_count >= 3
+    ORDER BY total_complaints ASC
+    LIMIT ?
+  `).bind(limit).all();
+  return results;
+}
+
 // --- Search ---
 
 export async function searchModels(db: D1Database, query: string, limit: number = 15) {
@@ -456,3 +497,95 @@ export async function searchModels(db: D1Database, query: string, limit: number 
   `).bind(like, like, like, limit).all();
   return results;
 }
+
+// --- Investigations ---
+
+export async function getInvestigationById(db: D1Database, nhtsaId: string): Promise<InvestigationWithNames | null> {
+  return db.prepare(`
+    SELECT i.*, mk.make_name, mo.model_name
+    FROM investigations i
+    LEFT JOIN makes mk ON i.make_id = mk.make_id
+    LEFT JOIN models mo ON i.model_id = mo.model_id
+    WHERE i.nhtsa_id = ?
+  `).bind(nhtsaId).first<InvestigationWithNames>();
+}
+
+export async function getRecentInvestigations(db: D1Database, limit: number = 50): Promise<InvestigationWithNames[]> {
+  const { results } = await db.prepare(`
+    SELECT i.nhtsa_id, i.subject, i.investigation_type, i.status, i.open_date, i.latest_activity_date, i.make_id, i.model_id,
+           mk.make_name, mo.model_name
+    FROM investigations i
+    LEFT JOIN makes mk ON i.make_id = mk.make_id
+    LEFT JOIN models mo ON i.model_id = mo.model_id
+    ORDER BY i.open_date DESC
+    LIMIT ?
+  `).bind(limit).all<InvestigationWithNames>();
+  return results;
+}
+
+export async function getOpenInvestigations(db: D1Database, limit: number = 100): Promise<InvestigationWithNames[]> {
+  const { results } = await db.prepare(`
+    SELECT i.nhtsa_id, i.subject, i.investigation_type, i.status, i.open_date, i.latest_activity_date, i.make_id, i.model_id,
+           mk.make_name, mo.model_name
+    FROM investigations i
+    LEFT JOIN makes mk ON i.make_id = mk.make_id
+    LEFT JOIN models mo ON i.model_id = mo.model_id
+    WHERE i.status = 'O'
+    ORDER BY i.open_date DESC
+    LIMIT ?
+  `).bind(limit).all<InvestigationWithNames>();
+  return results;
+}
+
+export async function getInvestigationsByMakeId(db: D1Database, makeId: string): Promise<InvestigationWithNames[]> {
+  const { results } = await db.prepare(`
+    SELECT i.nhtsa_id, i.subject, i.investigation_type, i.status, i.open_date, i.latest_activity_date, i.make_id, i.model_id,
+           mk.make_name, mo.model_name
+    FROM investigations i
+    LEFT JOIN makes mk ON i.make_id = mk.make_id
+    LEFT JOIN models mo ON i.model_id = mo.model_id
+    WHERE i.make_id = ?
+    ORDER BY i.open_date DESC
+  `).bind(makeId).all<InvestigationWithNames>();
+  return results;
+}
+
+export async function getInvestigationsByModelId(db: D1Database, modelId: string): Promise<InvestigationWithNames[]> {
+  const { results } = await db.prepare(`
+    SELECT i.nhtsa_id, i.subject, i.investigation_type, i.status, i.open_date, i.latest_activity_date, i.make_id, i.model_id,
+           mk.make_name, mo.model_name
+    FROM investigations i
+    LEFT JOIN makes mk ON i.make_id = mk.make_id
+    LEFT JOIN models mo ON i.model_id = mo.model_id
+    WHERE i.model_id = ?
+    ORDER BY i.open_date DESC
+  `).bind(modelId).all<InvestigationWithNames>();
+  return results;
+}
+
+export async function getInvestigationStats(db: D1Database) {
+  return db.prepare(`
+    SELECT
+      COUNT(*) as total,
+      SUM(CASE WHEN status = 'O' THEN 1 ELSE 0 END) as open_count,
+      SUM(CASE WHEN status = 'C' THEN 1 ELSE 0 END) as closed_count,
+      SUM(CASE WHEN investigation_type = 'PE' THEN 1 ELSE 0 END) as pe_count,
+      SUM(CASE WHEN investigation_type = 'EA' THEN 1 ELSE 0 END) as ea_count,
+      SUM(CASE WHEN investigation_type = 'RQ' THEN 1 ELSE 0 END) as rq_count
+  `).first<{
+    total: number;
+    open_count: number;
+    closed_count: number;
+    pe_count: number;
+    ea_count: number;
+    rq_count: number;
+  }>();
+}
+
+export const INVESTIGATION_TYPES: Record<string, string> = {
+  PE: 'Preliminary Evaluation',
+  EA: 'Engineering Analysis',
+  RQ: 'Recall Query',
+  DP: 'Defect Petition',
+  AQ: 'Audit Query',
+};

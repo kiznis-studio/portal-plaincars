@@ -58,6 +58,9 @@ function main() {
   const complaintCols = ['cmplid','my_id','odi_number','crash','fire','injured','deaths','component','summary','fail_date','date_added','mileage','state'];
   exportTable(db, 'complaints', complaintCols, '006-complaints', 'date_added DESC');
 
+  // Investigations
+  exportTable(db, 'investigations', ['nhtsa_id','subject','investigation_type','status','open_date','latest_activity_date','description','make_id','model_id'], '007-investigations', 'open_date DESC');
+
   db.close();
   console.log('Done! Seed files at:', SEED_DIR);
 }

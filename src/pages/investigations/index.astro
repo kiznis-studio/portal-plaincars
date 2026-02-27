@@ -1,0 +1,163 @@
+---
+export const prerender = false;
+import Base from '../../layouts/Base.astro';
+import Breadcrumb from '../../components/ui/Breadcrumb.astro';
+import AdSlot from '../../components/ads/AdSlot.astro';
+import { getRecentInvestigations, getOpenInvestigations, getInvestigationStats, INVESTIGATION_TYPES } from '../../lib/db';
+
+const db = Astro.locals.runtime.env.DB;
+
+const filterStatus = Astro.url.searchParams.get('status') || 'all';
+const filterType = Astro.url.searchParams.get('type') || 'all';
+
+const stats = await getInvestigationStats(db);
+
+let investigations;
+if (filterStatus === 'open') {
+  investigations = await getOpenInvestigations(db, 200);
+} else {
+  investigations = await getRecentInvestigations(db, 200);
+}
+
+// Apply type filter
+if (filterType !== 'all') {
+  investigations = investigations.filter(inv => inv.investigation_type === filterType);
+}
+
+const breadcrumbs = [
+  { name: 'Home', href: '/' },
+  { name: 'Investigations' },
+];
+
+function statusLabel(s: string) {
+  return s === 'O' ? 'Open' : 'Closed';
+}
+function statusColor(s: string) {
+  return s === 'O' ? 'text-amber-600 dark:text-amber-400' : 'text-teal-600 dark:text-teal-400';
+}
+function typeLabel(t: string) {
+  return INVESTIGATION_TYPES[t] || t;
+}
+function formatDate(d: string | null) {
+  if (!d) return '—';
+  return d;
+}
+---
+
+<Base
+  title="NHTSA Safety Investigations — Active & Closed Vehicle Investigations"
+  description={'Browse ' + (stats?.total || 0) + ' NHTSA safety investigations including ' + (stats?.open_count || 0) + ' currently open. Preliminary evaluations, engineering analyses, and recall queries.'}
+  breadcrumbs={breadcrumbs}
+>
+  <div class="max-w-6xl mx-auto px-4 py-8">
+    <Breadcrumb items={breadcrumbs} />
+
+    <h1 class="text-3xl font-bold text-[var(--color-text)] mb-2 mt-4">NHTSA Safety Investigations</h1>
+    <p class="text-[var(--color-text-secondary)] mb-8 max-w-3xl leading-relaxed">
+      The National Highway Traffic Safety Administration (NHTSA) opens investigations when vehicle defect patterns emerge from consumer complaints. Browse all {stats?.total?.toLocaleString()} investigations below, including {stats?.open_count} currently open.
+    </p>
+
+    {/* Stats */}
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
+      <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-4 text-center">
+        <div class="text-2xl font-bold text-[var(--color-primary)]">{stats?.total?.toLocaleString()}</div>
+        <div class="text-xs text-[var(--color-text-secondary)]">Total</div>
+      </div>
+      <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-4 text-center">
+        <div class="text-2xl font-bold text-amber-600 dark:text-amber-400">{stats?.open_count}</div>
+        <div class="text-xs text-[var(--color-text-secondary)]">Open</div>
+      </div>
+      <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-4 text-center">
+        <div class="text-2xl font-bold text-[var(--color-primary)]">{stats?.pe_count}</div>
+        <div class="text-xs text-[var(--color-text-secondary)]">Preliminary</div>
+      </div>
+      <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-4 text-center">
+        <div class="text-2xl font-bold text-[var(--color-primary)]">{stats?.ea_count}</div>
+        <div class="text-xs text-[var(--color-text-secondary)]">Engineering</div>
+      </div>
+      <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-4 text-center">
+        <div class="text-2xl font-bold text-[var(--color-primary)]">{stats?.rq_count}</div>
+        <div class="text-xs text-[var(--color-text-secondary)]">Recall Queries</div>
+      </div>
+    </div>
+
+    {/* Filters */}
+    <div class="flex flex-wrap gap-2 mb-6">
+      <div class="flex items-center gap-1 text-sm">
+        <span class="text-[var(--color-text-secondary)] mr-1">Status:</span>
+        <a href="/investigations/" class:list={['px-3 py-1 rounded-full border text-sm transition-colors', filterStatus === 'all' ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]' : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-primary)]']}>All</a>
+        <a href="/investigations/?status=open" class:list={['px-3 py-1 rounded-full border text-sm transition-colors', filterStatus === 'open' ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]' : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-primary)]']}>Open</a>
+      </div>
+      <div class="flex items-center gap-1 text-sm ml-4">
+        <span class="text-[var(--color-text-secondary)] mr-1">Type:</span>
+        <a href={'/investigations/' + (filterStatus !== 'all' ? '?status=' + filterStatus : '')} class:list={['px-3 py-1 rounded-full border text-sm transition-colors', filterType === 'all' ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]' : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-primary)]']}>All</a>
+        {['PE', 'EA', 'RQ'].map(t => {
+          const href = '/investigations/?type=' + t + (filterStatus !== 'all' ? '&status=' + filterStatus : '');
+          return (
+            <a href={href} class:list={['px-3 py-1 rounded-full border text-sm transition-colors', filterType === t ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]' : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-primary)]']}>{t}</a>
+          );
+        })}
+      </div>
+    </div>
+
+    <AdSlot slot="mid" />
+
+    {/* Investigation list */}
+    <div class="space-y-3 mt-6">
+      {investigations.map(inv => (
+        <a href={'/investigations/' + inv.nhtsa_id} class="block bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-4 hover:border-[var(--color-primary)] transition-colors">
+          <div class="flex items-start justify-between gap-3 mb-2">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="text-xs font-mono text-[var(--color-primary)]">{inv.nhtsa_id}</span>
+              <span class="text-xs px-2 py-0.5 rounded bg-[var(--color-surface-alt)] text-[var(--color-text-secondary)]">{typeLabel(inv.investigation_type)}</span>
+              <span class={'text-xs font-medium ' + statusColor(inv.status)}>{statusLabel(inv.status)}</span>
+            </div>
+            <span class="text-xs text-[var(--color-text-secondary)] whitespace-nowrap">{formatDate(inv.open_date)}</span>
+          </div>
+          <p class="text-sm font-medium text-[var(--color-text)] mb-1">{inv.subject}</p>
+          {inv.make_name && (
+            <p class="text-xs text-[var(--color-text-secondary)]">
+              {inv.make_name}{inv.model_name ? ' ' + inv.model_name : ''}
+            </p>
+          )}
+        </a>
+      ))}
+    </div>
+
+    {investigations.length === 0 && (
+      <div class="text-center py-12 text-[var(--color-text-secondary)]">
+        <p>No investigations found matching your filters.</p>
+      </div>
+    )}
+
+    {/* Methodology */}
+    <section class="mt-12">
+      <h2 class="text-lg font-semibold text-[var(--color-text)] mb-4">Understanding NHTSA Investigations</h2>
+      <div class="grid sm:grid-cols-2 gap-4 text-sm text-[var(--color-text-secondary)]">
+        <div class="p-4 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)]">
+          <h3 class="font-semibold text-[var(--color-text)] mb-2">Preliminary Evaluation (PE)</h3>
+          <p>Initial assessment of a potential safety defect, typically opened after receiving multiple consumer complaints about similar issues.</p>
+        </div>
+        <div class="p-4 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)]">
+          <h3 class="font-semibold text-[var(--color-text)] mb-2">Engineering Analysis (EA)</h3>
+          <p>In-depth technical evaluation that may include testing, data collection from manufacturers, and detailed defect analysis.</p>
+        </div>
+        <div class="p-4 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)]">
+          <h3 class="font-semibold text-[var(--color-text)] mb-2">Recall Query (RQ)</h3>
+          <p>Evaluation of the effectiveness of a previously issued recall remedy, often triggered when complaints persist after a recall.</p>
+        </div>
+        <div class="p-4 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)]">
+          <h3 class="font-semibold text-[var(--color-text)] mb-2">Investigation Outcomes</h3>
+          <p>Investigations may result in a voluntary recall by the manufacturer, a mandatory recall order, or closure if no defect is found.</p>
+        </div>
+      </div>
+    </section>
+
+    <div class="mt-8 p-4 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)]">
+      <p class="text-xs text-[var(--color-text-secondary)]">
+        Data from NHTSA Office of Defects Investigation. PlainCars does not rate or recommend vehicles.
+        <a href="/about" class="text-[var(--color-primary)] hover:underline">Learn more</a>.
+      </p>
+    </div>
+  </div>
+</Base>

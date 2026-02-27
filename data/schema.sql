@@ -81,7 +81,23 @@ CREATE TABLE IF NOT EXISTS recalls (
   affected_count INTEGER
 );
 
+CREATE TABLE IF NOT EXISTS investigations (
+  nhtsa_id TEXT PRIMARY KEY,
+  subject TEXT NOT NULL,
+  investigation_type TEXT NOT NULL,
+  status TEXT NOT NULL,
+  open_date TEXT,
+  latest_activity_date TEXT,
+  description TEXT,
+  make_id TEXT,
+  model_id TEXT
+);
+
 -- Indexes
+CREATE INDEX IF NOT EXISTS idx_inv_make ON investigations(make_id);
+CREATE INDEX IF NOT EXISTS idx_inv_model ON investigations(model_id);
+CREATE INDEX IF NOT EXISTS idx_inv_status ON investigations(status);
+CREATE INDEX IF NOT EXISTS idx_inv_type ON investigations(investigation_type);
 CREATE INDEX IF NOT EXISTS idx_models_make ON models(make_id);
 CREATE INDEX IF NOT EXISTS idx_model_years_model ON model_years(model_id);
 CREATE INDEX IF NOT EXISTS idx_model_years_make ON model_years(make_id);
