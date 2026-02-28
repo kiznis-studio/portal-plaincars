@@ -1,8 +1,19 @@
 import { defineMiddleware } from 'astro:middleware';
+import { existsSync } from 'node:fs';
+import { createD1Adapter } from './lib/d1-adapter';
+
+// Initialize DB adapter once (persistent across requests — Node.js long-lived process)
+const DATABASE_PATH = process.env.DATABASE_PATH || '/data/portal.db';
+let db: ReturnType<typeof createD1Adapter> | null = null;
+function getDb() {
+  if (!db) {
+    if (!existsSync(DATABASE_PATH)) return null as any; // build time: no DB file
+    db = createD1Adapter(DATABASE_PATH);
+  }
+  return db;
+}
 
 // Simple in-memory rate limiter for API endpoints
-// Cloudflare Workers isolates are short-lived, so this resets naturally
-// This protects against burst abuse (rapid-fire requests from one IP)
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT = 30; // requests per window
 const RATE_WINDOW = 60_000; // 1 minute in ms
@@ -23,7 +34,6 @@ function isRateLimited(ip: string): boolean {
   return false;
 }
 
-// Cleanup stale entries periodically (prevent memory leak in long-lived isolates)
 function cleanupRateLimits() {
   const now = Date.now();
   if (rateLimitMap.size > 1000) {
@@ -36,10 +46,15 @@ function cleanupRateLimits() {
 export const onRequest = defineMiddleware(async (context, next) => {
   const path = context.url.pathname;
 
+  // Inject D1-compatible DB adapter into locals (same path as Cloudflare runtime)
+  // This means all page code accessing Astro.locals.runtime.env.DB works unchanged
+  (context.locals as any).runtime = { env: { DB: getDb() } };
+
   // Rate-limit API endpoints only
   if (path.startsWith('/api/')) {
-    let ip = 'unknown';
-    try { ip = context.clientAddress || context.request.headers.get('cf-connecting-ip') || 'unknown'; } catch { ip = context.request.headers.get('cf-connecting-ip') || 'unknown'; }
+    const ip = context.request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+      || context.request.headers.get('cf-connecting-ip')
+      || 'unknown';
 
     cleanupRateLimits();
 
@@ -57,34 +72,17 @@ export const onRequest = defineMiddleware(async (context, next) => {
     return next();
   }
 
-  // --- Cloudflare Cache API for SSR pages ---
-  // Workers bypass the CDN cache by default. We must explicitly use the Cache API
-  // to store/retrieve responses at Cloudflare's edge, preventing D1 reads from crawlers.
-  const cache = typeof caches !== 'undefined' ? caches.default : null;
-  const cacheKey = new Request(context.url.toString(), { method: 'GET' });
-
-  if (cache && context.request.method === 'GET') {
-    const cached = await cache.match(cacheKey);
-    if (cached) return cached;
-  }
-
   const response = await next();
 
-  // Only cache successful HTML/XML responses
-  if (cache && response.status === 200 && context.request.method === 'GET') {
+  // Set Cache-Control headers for HTML/XML responses
+  // Cloudflare CDN (in front) will respect s-maxage for edge caching
+  if (response.status === 200 && context.request.method === 'GET') {
     const ct = response.headers.get('content-type') || '';
     if (ct.includes('text/html') || ct.includes('xml')) {
-      const ttl = ct.includes('xml') ? 86400 : 21600; // 24h sitemaps, 6h HTML
-      const cacheResponse = new Response(response.body, response);
-      cacheResponse.headers.set('Cache-Control', `public, max-age=300, s-maxage=${ttl}`);
-      // waitUntil keeps the Worker alive to complete the cache.put() in the background
-      const waitUntil = (context.locals as any).runtime?.waitUntil;
-      if (waitUntil) {
-        waitUntil(cache.put(cacheKey, cacheResponse.clone()));
-      } else {
-        await cache.put(cacheKey, cacheResponse.clone());
-      }
-      return cacheResponse;
+      const ttl = ct.includes('xml') ? 86400 : 3600;
+      const newResponse = new Response(response.body, response);
+      newResponse.headers.set('Cache-Control', `public, max-age=300, s-maxage=${ttl}`);
+      return newResponse;
     }
   }
 

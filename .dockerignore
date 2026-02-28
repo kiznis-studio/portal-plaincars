@@ -1,0 +1,10 @@
+node_modules
+dist
+.git
+.github
+data
+scripts
+*.md
+wrangler.toml
+.dev.vars
+.wrangler
