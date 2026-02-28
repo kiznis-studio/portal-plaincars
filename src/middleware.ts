@@ -53,5 +53,20 @@ export const onRequest = defineMiddleware(async (context, next) => {
     }
   }
 
-  return next();
+  const response = await next();
+
+  // Add edge caching to SSR pages — reduces D1 reads from crawlers
+  // s-maxage = Cloudflare edge cache; max-age = browser cache
+  const path = context.url.pathname;
+  if (!path.startsWith('/api/') && response.status === 200) {
+    const ct = response.headers.get('content-type') || '';
+    if (ct.includes('text/html')) {
+      response.headers.set('Cache-Control', 'public, max-age=300, s-maxage=21600');
+    } else if (ct.includes('xml')) {
+      response.headers.set('Cache-Control', 'public, max-age=3600, s-maxage=86400');
+    }
+  }
+
+  return response;
 });
+
