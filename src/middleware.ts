@@ -33,10 +33,11 @@ function cleanupRateLimits() {
   }
 }
 
-export const onRequest = defineMiddleware(async ({ request, url, clientAddress }, next) => {
-  // Only rate-limit API endpoints
-  if (url.pathname.startsWith('/api/')) {
-    const ip = clientAddress || request.headers.get('cf-connecting-ip') || 'unknown';
+export const onRequest = defineMiddleware(async (context, next) => {
+  // Only rate-limit API endpoints (SSR routes, never prerendered)
+  if (context.url.pathname.startsWith('/api/')) {
+    let ip = 'unknown';
+    try { ip = context.clientAddress || context.request.headers.get('cf-connecting-ip') || 'unknown'; } catch { ip = context.request.headers.get('cf-connecting-ip') || 'unknown'; }
 
     cleanupRateLimits();
 
