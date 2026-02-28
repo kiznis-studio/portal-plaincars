@@ -585,6 +585,7 @@ export async function getInvestigationStats(db: D1Database) {
       SUM(CASE WHEN investigation_type = 'PE' THEN 1 ELSE 0 END) as pe_count,
       SUM(CASE WHEN investigation_type = 'EA' THEN 1 ELSE 0 END) as ea_count,
       SUM(CASE WHEN investigation_type = 'RQ' THEN 1 ELSE 0 END) as rq_count
+    FROM investigations
   `).first<{
     total: number;
     open_count: number;
