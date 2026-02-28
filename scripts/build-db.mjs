@@ -248,6 +248,27 @@ async function main() {
   }
   console.log('  Inserted ' + complaintInserted + ' individual complaints');
 
+  // Pre-compute _stats for D1 efficiency
+  console.log('Pre-computing _stats...');
+  db.prepare('CREATE TABLE IF NOT EXISTS _stats (key TEXT PRIMARY KEY, value TEXT NOT NULL)').run();
+
+  const ns = db.prepare(`SELECT
+    (SELECT COUNT(*) FROM makes) as total_makes,
+    (SELECT COUNT(*) FROM models) as total_models,
+    (SELECT COUNT(*) FROM model_years) as total_model_years,
+    (SELECT COUNT(*) FROM complaints) as total_complaints,
+    (SELECT COUNT(*) FROM recalls) as total_recalls,
+    (SELECT AVG(complaint_count) FROM model_years WHERE complaint_count > 0) as avg_complaints_per_model,
+    (SELECT AVG(overall_rating) FROM model_years WHERE overall_rating IS NOT NULL) as avg_rating,
+    (SELECT COUNT(*) FROM model_years WHERE overall_rating IS NOT NULL) as models_with_rating
+  `).get();
+  db.prepare("INSERT OR REPLACE INTO _stats VALUES ('national_stats', ?)").run(JSON.stringify(ns));
+
+  const sc = db.prepare(`SELECT state, COUNT(*) as complaint_count FROM complaints WHERE state IS NOT NULL AND state != '' GROUP BY state ORDER BY complaint_count DESC`).all();
+  db.prepare("INSERT OR REPLACE INTO _stats VALUES ('state_complaints', ?)").run(JSON.stringify(sc));
+
+  console.log('  _stats: national_stats, state_complaints (' + sc.length + ' states)');
+
   db.close();
   console.log('Done! Database at ' + DB_PATH);
 }

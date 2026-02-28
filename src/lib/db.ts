@@ -199,6 +199,13 @@ export async function getRecentRecalls(db: D1Database, limit: number = 50): Prom
 // --- Stats ---
 
 export async function getNationalStats(db: D1Database) {
+  try {
+    const stat = await db.prepare("SELECT value FROM _stats WHERE key = 'national_stats'").first<{ value: string }>();
+    if (stat) return JSON.parse(stat.value) as {
+      total_makes: number; total_models: number; total_complaints: number;
+      total_recalls: number; total_deaths: number; total_injuries: number;
+    };
+  } catch { /* _stats may not exist yet */ }
   return db.prepare(`
     SELECT
       (SELECT COUNT(*) FROM makes) as total_makes,
@@ -208,12 +215,8 @@ export async function getNationalStats(db: D1Database) {
       (SELECT SUM(death_count) FROM model_years) as total_deaths,
       (SELECT SUM(injury_count) FROM model_years) as total_injuries
   `).first<{
-    total_makes: number;
-    total_models: number;
-    total_complaints: number;
-    total_recalls: number;
-    total_deaths: number;
-    total_injuries: number;
+    total_makes: number; total_models: number; total_complaints: number;
+    total_recalls: number; total_deaths: number; total_injuries: number;
   }>();
 }
 
@@ -335,6 +338,15 @@ export interface StateVehicle {
 }
 
 export async function getAllStates(db: D1Database): Promise<StateInfo[]> {
+  try {
+    const stat = await db.prepare("SELECT value FROM _stats WHERE key = 'state_complaints'").first<{ value: string }>();
+    if (stat) {
+      const data = JSON.parse(stat.value) as { state: string; complaint_count: number }[];
+      return data
+        .filter(r => STATE_MAP[r.state])
+        .map(r => ({ code: r.state, name: STATE_MAP[r.state].name, slug: STATE_MAP[r.state].slug, complaint_count: r.complaint_count }));
+    }
+  } catch { /* _stats may not exist yet */ }
   const { results } = await db.prepare(
     `SELECT state, COUNT(*) as complaint_count
      FROM complaints
@@ -487,7 +499,8 @@ export async function getModelsForReliability(db: D1Database, limit = 500) {
 // --- Search ---
 
 export async function searchModels(db: D1Database, query: string, limit: number = 15) {
-  const like = `%${query.trim()}%`;
+  const trimmed = query.trim();
+  const like = `${trimmed}%`;
   const { results } = await db.prepare(`
     SELECT m.model_id, m.model_name, m.slug, m.complaint_count, m.year_min, m.year_max, mk.make_name
     FROM models m JOIN makes mk ON m.make_id = mk.make_id

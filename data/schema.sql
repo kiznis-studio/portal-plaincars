@@ -108,3 +108,5 @@ CREATE INDEX IF NOT EXISTS idx_recalls_my ON recalls(my_id);
 CREATE INDEX IF NOT EXISTS idx_recalls_make ON recalls(make_id);
 CREATE INDEX IF NOT EXISTS idx_makes_slug ON makes(slug);
 CREATE INDEX IF NOT EXISTS idx_models_slug ON models(slug);
+
+CREATE TABLE IF NOT EXISTS _stats (key TEXT PRIMARY KEY, value TEXT NOT NULL);

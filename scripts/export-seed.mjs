@@ -61,6 +61,9 @@ function main() {
   // Investigations
   exportTable(db, 'investigations', ['nhtsa_id','subject','investigation_type','status','open_date','latest_activity_date','description','make_id','model_id'], '007-investigations', 'open_date DESC');
 
+  // _stats
+  exportTable(db, '_stats', ['key','value'], '008-stats');
+
   db.close();
   console.log('Done! Seed files at:', SEED_DIR);
 }
