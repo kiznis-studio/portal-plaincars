@@ -35,9 +35,29 @@ function normalizeParams(sql: string): string {
 export function createD1Adapter(dbPath: string): D1Database {
   const db = new Database(dbPath, { readonly: true, fileMustExist: true });
 
+  // Self-heal: force DELETE journal mode to prevent WAL issues on :ro mounts.
+  // WAL mode DBs try to create a WAL file even for reads, causing 500 errors.
+  try {
+    db.pragma('journal_mode = DELETE');
+  } catch {
+    // Expected to fail on truly read-only filesystems — safe to ignore
+  }
+
   return {
     prepare(sql: string): D1PreparedStatement {
-      const stmt = db.prepare(normalizeParams(sql));
+      let stmt: ReturnType<InstanceType<typeof Database>['prepare']>;
+      try {
+        stmt = db.prepare(normalizeParams(sql));
+      } catch (err: any) {
+        if (err?.message?.includes('readonly database')) {
+          throw new Error(
+            `SQLite readonly error — DB may be in WAL mode. ` +
+            `Fix: sqlite3 ${dbPath} "PRAGMA journal_mode=DELETE; VACUUM;" then re-upload. ` +
+            `Original: ${err.message}`
+          );
+        }
+        throw err;
+      }
 
       function makeBindResult(params: unknown[]) {
         return {
