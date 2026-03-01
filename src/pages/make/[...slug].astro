@@ -3,7 +3,7 @@ export const prerender = false;
 import Base from '../../layouts/Base.astro';
 import Breadcrumb from '../../components/ui/Breadcrumb.astro';
 import AdSlot from '../../components/ads/AdSlot.astro';
-import { getMakeBySlug, getModelsByMake, getModelBySlug, getModelYears, getModelYearById, getComplaintStats, getComplaints, getRecallsByModelYear, getCompareModelsForModel, getInvestigationsByMakeId, getInvestigationsByModelId, INVESTIGATION_TYPES } from '../../lib/db';
+import { getMakeBySlug, getModelsByMake, getModelBySlug, getModelYears, getModelYearById, getComplaintStats, getComplaints, getRecallsByModelYear, getCompareModelsForModel, getInvestigationsByMakeId, getInvestigationsByModelId, getComplaintTrends, INVESTIGATION_TYPES } from '../../lib/db';
 
 const db = Astro.locals.runtime.env.DB;
 const slugPath = Astro.params.slug || '';
@@ -60,6 +60,12 @@ if (pageType === 'model' && model) {
   compareModels = await getCompareModelsForModel(db, model.model_id, 4);
 } else if (pageType === 'year' && model) {
   compareModels = await getCompareModelsForModel(db, model.model_id, 4);
+}
+
+// Fetch complaint trends for model pages
+let complaintTrends: any[] = [];
+if ((pageType === 'model' || pageType === 'year') && model) {
+  complaintTrends = await getComplaintTrends(db, model.model_id);
 }
 
 // Fetch investigations for make/model pages
@@ -304,6 +310,36 @@ const faqSchema = faqItems.length > 0 ? JSON.stringify({
           </tbody>
         </table>
       </div>
+
+      {complaintTrends.length > 2 && (
+        <div class="mt-8 mb-8">
+          <h2 class="text-xl font-bold text-[var(--color-text)] mb-4">Complaint Filing Trend</h2>
+          <p class="text-sm text-[var(--color-text-secondary)] mb-4">
+            NHTSA complaint volume by year filed (not model year).
+          </p>
+          <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-4">
+            <div class="flex items-end gap-1 h-40">
+              {complaintTrends.map((t: any) => {
+                const maxCount = Math.max(...complaintTrends.map((x: any) => x.complaint_count));
+                const height = maxCount > 0 ? (t.complaint_count / maxCount) * 100 : 0;
+                return (
+                  <div class="flex-1 flex flex-col items-center justify-end gap-1" title={`${t.cal_year}: ${t.complaint_count} complaints`}>
+                    <div class="text-[10px] text-[var(--color-text-secondary)] tabular-nums">{t.complaint_count > 0 ? t.complaint_count : ''}</div>
+                    <div
+                      class="w-full rounded-t bg-[var(--color-primary)] min-h-[2px]"
+                      style={`height: ${Math.max(height, 1)}%`}
+                    />
+                    <div class="text-[9px] text-[var(--color-text-secondary)] tabular-nums">{String(t.cal_year).slice(2)}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          <a href="/rankings/complaint-trends" class="text-sm text-[var(--color-primary)] hover:underline mt-2 inline-block">
+            View all trending models &rarr;
+          </a>
+        </div>
+      )}
 
       {compareModels.length > 0 && (
         <div class="mt-8 mb-8">

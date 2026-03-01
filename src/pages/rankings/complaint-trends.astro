@@ -1,0 +1,166 @@
+---
+export const prerender = false;
+import Base from '../../layouts/Base.astro';
+import Breadcrumb from '../../components/ui/Breadcrumb.astro';
+import AdSlot from '../../components/ads/AdSlot.astro';
+import { getTrendingComplaintModels } from '../../lib/db';
+
+const db = Astro.locals.runtime.env.DB;
+const [rising, falling] = await Promise.all([
+  getTrendingComplaintModels(db, 'rising', 50),
+  getTrendingComplaintModels(db, 'falling', 50),
+]);
+
+const title = 'Vehicle Complaint Trends — Rising & Falling Models';
+const description = `NHTSA complaint trends: vehicles with the biggest increase and decrease in complaints. ${rising.length} models trending up, ${falling.length} trending down (2022-2026 vs 2017-2021).`;
+---
+
+<Base
+  title={title}
+  description={description}
+  breadcrumbs={[{ name: 'Home', href: '/' }, { name: 'Rankings', href: '/rankings' }, { name: 'Complaint Trends' }]}
+>
+  <div class="max-w-6xl mx-auto px-4 py-8">
+    <Breadcrumb items={[{ name: 'Home', href: '/' }, { name: 'Rankings', href: '/rankings' }, { name: 'Complaint Trends' }]} />
+
+    <h1 class="text-3xl font-bold text-[var(--color-text)] mb-2 mt-4">Vehicle Complaint Trends</h1>
+    <p class="text-[var(--color-text-secondary)] mb-8">
+      Models with the biggest change in NHTSA complaint volume. Comparing 2022-2026 vs 2017-2021 filing periods.
+    </p>
+
+    <!-- Rising Complaints -->
+    <section class="mb-12">
+      <h2 class="text-xl font-bold text-[var(--color-text)] mb-1">Rising Complaints</h2>
+      <p class="text-sm text-[var(--color-text-secondary)] mb-4">
+        Models with the largest increase in complaint volume. May indicate emerging safety concerns.
+      </p>
+
+      {rising.length > 0 ? (
+        <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="bg-[var(--color-border)]/30">
+                <tr>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-[var(--color-text-secondary)] uppercase">#</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-[var(--color-text-secondary)] uppercase">Vehicle</th>
+                  <th class="px-4 py-3 text-right text-xs font-medium text-[var(--color-text-secondary)] uppercase">2022-26</th>
+                  <th class="px-4 py-3 text-right text-xs font-medium text-[var(--color-text-secondary)] uppercase">2017-21</th>
+                  <th class="px-4 py-3 text-right text-xs font-medium text-[var(--color-text-secondary)] uppercase">Change</th>
+                  <th class="px-4 py-3 text-right text-xs font-medium text-[var(--color-text-secondary)] uppercase hidden sm:table-cell">Total</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-[var(--color-border)]">
+                {rising.map((m, i) => (
+                  <tr class="hover:bg-[var(--color-surface)] transition-colors">
+                    <td class="px-4 py-2.5 text-[var(--color-text-secondary)]">{i + 1}</td>
+                    <td class="px-4 py-2.5">
+                      <a href={`/make/${m.slug}`} class="text-[var(--color-primary)] hover:underline font-medium">
+                        {m.make_name} {m.model_name}
+                      </a>
+                    </td>
+                    <td class="px-4 py-2.5 text-right tabular-nums font-medium">{m.recent_count}</td>
+                    <td class="px-4 py-2.5 text-right tabular-nums text-[var(--color-text-secondary)]">{m.prev_count}</td>
+                    <td class="px-4 py-2.5 text-right">
+                      <span class="text-amber-600 dark:text-amber-400 font-semibold">+{m.change_pct}%</span>
+                    </td>
+                    <td class="px-4 py-2.5 text-right tabular-nums text-[var(--color-text-secondary)] hidden sm:table-cell">
+                      {m.total_complaints.toLocaleString()}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : (
+        <p class="text-[var(--color-text-secondary)]">No trending models found.</p>
+      )}
+    </section>
+
+    <AdSlot slot="mid" />
+
+    <!-- Falling Complaints -->
+    <section class="mb-12">
+      <h2 class="text-xl font-bold text-[var(--color-text)] mb-1">Falling Complaints</h2>
+      <p class="text-sm text-[var(--color-text-secondary)] mb-4">
+        Models with the largest decrease in complaint volume. May indicate quality improvements.
+      </p>
+
+      {falling.length > 0 ? (
+        <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="bg-[var(--color-border)]/30">
+                <tr>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-[var(--color-text-secondary)] uppercase">#</th>
+                  <th class="px-4 py-3 text-left text-xs font-medium text-[var(--color-text-secondary)] uppercase">Vehicle</th>
+                  <th class="px-4 py-3 text-right text-xs font-medium text-[var(--color-text-secondary)] uppercase">2022-26</th>
+                  <th class="px-4 py-3 text-right text-xs font-medium text-[var(--color-text-secondary)] uppercase">2017-21</th>
+                  <th class="px-4 py-3 text-right text-xs font-medium text-[var(--color-text-secondary)] uppercase">Change</th>
+                  <th class="px-4 py-3 text-right text-xs font-medium text-[var(--color-text-secondary)] uppercase hidden sm:table-cell">Total</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-[var(--color-border)]">
+                {falling.map((m, i) => (
+                  <tr class="hover:bg-[var(--color-surface)] transition-colors">
+                    <td class="px-4 py-2.5 text-[var(--color-text-secondary)]">{i + 1}</td>
+                    <td class="px-4 py-2.5">
+                      <a href={`/make/${m.slug}`} class="text-[var(--color-primary)] hover:underline font-medium">
+                        {m.make_name} {m.model_name}
+                      </a>
+                    </td>
+                    <td class="px-4 py-2.5 text-right tabular-nums font-medium">{m.recent_count}</td>
+                    <td class="px-4 py-2.5 text-right tabular-nums text-[var(--color-text-secondary)]">{m.prev_count}</td>
+                    <td class="px-4 py-2.5 text-right">
+                      <span class="text-teal-600 dark:text-teal-400 font-semibold">{m.change_pct}%</span>
+                    </td>
+                    <td class="px-4 py-2.5 text-right tabular-nums text-[var(--color-text-secondary)] hidden sm:table-cell">
+                      {m.total_complaints.toLocaleString()}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : (
+        <p class="text-[var(--color-text-secondary)]">No trending models found.</p>
+      )}
+    </section>
+
+    <!-- Methodology -->
+    <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-6 mb-8">
+      <h2 class="text-lg font-semibold mb-3">Methodology</h2>
+      <div class="text-sm text-[var(--color-text-secondary)] space-y-2">
+        <p>Trends are calculated by comparing complaint filing volumes between two periods:</p>
+        <ul class="list-disc pl-5">
+          <li><strong>Recent period:</strong> 2022-2026 (minimum 5 complaints required)</li>
+          <li><strong>Previous period:</strong> 2017-2021 (minimum 3 complaints required)</li>
+        </ul>
+        <p>
+          Change percentage shows how much complaint volume increased or decreased.
+          Rising complaints may indicate emerging safety issues; falling complaints may reflect quality improvements or model discontinuation.
+        </p>
+      </div>
+    </div>
+
+    <div class="flex gap-4 text-sm">
+      <a href="/rankings" class="text-[var(--color-primary)] hover:underline">&larr; All Rankings</a>
+      <a href="/reliability" class="text-[var(--color-primary)] hover:underline">Reliability Ratings &rarr;</a>
+    </div>
+
+    <p class="text-xs text-[var(--color-text-secondary)] mt-8">
+      Source: NHTSA Vehicle Complaints Database. Complaint filing date determines trend assignment.
+    </p>
+  </div>
+
+  <script type="application/ld+json" set:html={JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://plaincars.com/" },
+      { "@type": "ListItem", "position": 2, "name": "Rankings", "item": "https://plaincars.com/rankings/" },
+      { "@type": "ListItem", "position": 3, "name": "Complaint Trends" }
+    ]
+  })} />
+</Base>

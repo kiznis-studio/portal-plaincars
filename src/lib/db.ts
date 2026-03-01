@@ -596,6 +596,61 @@ export async function getInvestigationStats(db: D1Database) {
   }>();
 }
 
+// --- Complaint Trends ---
+
+export interface ComplaintTrend {
+  cal_year: number;
+  complaint_count: number;
+  crash_count: number;
+  fire_count: number;
+  injury_count: number;
+  death_count: number;
+}
+
+export interface TrendingModel {
+  model_id: string;
+  make_name: string;
+  model_name: string;
+  slug: string;
+  recent_count: number;
+  prev_count: number;
+  change_pct: number;
+  total_complaints: number;
+}
+
+export async function getComplaintTrends(db: D1Database, modelId: string): Promise<ComplaintTrend[]> {
+  const { results } = await db.prepare(
+    'SELECT cal_year, complaint_count, crash_count, fire_count, injury_count, death_count FROM complaint_trends WHERE model_id = ? ORDER BY cal_year'
+  ).bind(modelId).all<ComplaintTrend>();
+  return results;
+}
+
+export async function getTrendingComplaintModels(db: D1Database, direction: 'rising' | 'falling', limit = 50): Promise<TrendingModel[]> {
+  const order = direction === 'rising' ? 'DESC' : 'ASC';
+  const { results } = await db.prepare(`
+    SELECT
+      r.model_id, mk.make_name, m.model_name, m.slug,
+      r.recent_count, p.prev_count,
+      ROUND((CAST(r.recent_count AS REAL) - p.prev_count) / MAX(p.prev_count, 1) * 100, 1) as change_pct,
+      m.complaint_count as total_complaints
+    FROM (
+      SELECT model_id, SUM(complaint_count) as recent_count
+      FROM complaint_trends WHERE cal_year BETWEEN 2022 AND 2026
+      GROUP BY model_id HAVING recent_count >= 5
+    ) r
+    JOIN (
+      SELECT model_id, SUM(complaint_count) as prev_count
+      FROM complaint_trends WHERE cal_year BETWEEN 2017 AND 2021
+      GROUP BY model_id HAVING prev_count >= 3
+    ) p ON r.model_id = p.model_id
+    JOIN models m ON m.model_id = r.model_id
+    JOIN makes mk ON mk.make_id = m.make_id
+    ORDER BY change_pct ${order}
+    LIMIT ?
+  `).bind(limit).all<TrendingModel>();
+  return results;
+}
+
 export const INVESTIGATION_TYPES: Record<string, string> = {
   PE: 'Preliminary Evaluation',
   EA: 'Engineering Analysis',

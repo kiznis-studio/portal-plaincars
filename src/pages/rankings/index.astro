@@ -22,6 +22,13 @@ const [topComplained, topDangerous] = await Promise.all([
     <h1 class="text-3xl font-bold text-[var(--color-text)] mb-2 mt-4">Vehicle Safety Rankings</h1>
     <p class="text-[var(--color-text-secondary)] mb-8">Vehicles ranked by NHTSA complaint data.</p>
 
+    <div class="mb-8">
+      <a href="/rankings/complaint-trends"
+        class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--color-primary)]/10 text-[var(--color-primary)] hover:bg-[var(--color-primary)]/20 transition-colors text-sm font-medium">
+        Complaint Trends — Rising & Falling Models &rarr;
+      </a>
+    </div>
+
     <div class="grid md:grid-cols-2 gap-8">
       <!-- Most Complained -->
       <div>
