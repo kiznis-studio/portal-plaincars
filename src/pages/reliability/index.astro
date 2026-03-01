@@ -1,0 +1,161 @@
+---
+export const prerender = false;
+
+import Base from '../../layouts/Base.astro';
+import Breadcrumb from '../../components/ui/Breadcrumb.astro';
+import { getModelsForReliability } from '../../lib/db';
+import { calculateReliability, gradeColor, gradeBg, type ModelReliabilityData } from '../../lib/reliability';
+
+const db = Astro.locals.runtime.env.DB;
+const rawModels = await getModelsForReliability(db, 500);
+
+// Score all models
+const scored = rawModels.map(m => {
+  const stats = m as unknown as ModelReliabilityData;
+  const rel = calculateReliability({
+    year_count: Number(stats.year_count),
+    total_complaints: Number(stats.total_complaints),
+    total_recalls: Number(stats.total_recalls),
+    total_crashes: Number(stats.total_crashes),
+    total_fires: Number(stats.total_fires),
+    total_injuries: Number(stats.total_injuries),
+    total_deaths: Number(stats.total_deaths),
+  });
+  return { ...stats, ...rel };
+}).sort((a, b) => b.score - a.score);
+
+const mostReliable = scored.slice(0, 25);
+const leastReliable = [...scored].sort((a, b) => a.score - b.score).slice(0, 25);
+
+// Grade distribution
+const gradeDist: Record<string, number> = {};
+for (const s of scored) {
+  const g = s.grade[0]; // Just the letter
+  gradeDist[g] = (gradeDist[g] || 0) + 1;
+}
+
+const title = 'Vehicle Reliability Ratings — NHTSA Data Analysis | PlainCars';
+const description = `Reliability scores for ${scored.length}+ vehicle models based on NHTSA complaint density, recall frequency, and crash/injury/death rates. Free, transparent methodology.`;
+---
+
+<Base title={title} description={description}>
+  <div class="max-w-6xl mx-auto px-4 py-8">
+    <Breadcrumb items={[
+      { label: 'Home', href: '/' },
+      { label: 'Reliability' },
+    ]} />
+
+    <h1 class="text-3xl md:text-4xl font-bold text-[var(--color-text)] mb-3">Vehicle Reliability Ratings</h1>
+    <p class="text-[var(--color-text-secondary)] max-w-3xl leading-relaxed mb-8">
+      Reliability scores computed from NHTSA complaint density, recall frequency, and crash/injury/death rates.
+      {scored.length} models with 3+ years of data. Lower complaints and fewer safety incidents = higher score.
+    </p>
+
+    <!-- Grade Distribution -->
+    <div class="grid grid-cols-5 gap-3 mb-10">
+      {['A', 'B', 'C', 'D', 'F'].map(g => (
+        <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-3 text-center">
+          <span class={`text-2xl font-bold ${g === 'A' ? 'text-emerald-500' : g === 'B' ? 'text-teal-500' : g === 'C' ? 'text-amber-500' : g === 'D' ? 'text-orange-500' : 'text-amber-600 dark:text-amber-400'}`}>{g}</span>
+          <p class="text-sm text-[var(--color-text-secondary)] mt-1">{gradeDist[g] || 0} models</p>
+        </div>
+      ))}
+    </div>
+
+    <!-- Methodology -->
+    <details class="mb-10 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-4">
+      <summary class="font-semibold text-[var(--color-text)] cursor-pointer">How We Calculate Reliability Scores</summary>
+      <div class="mt-3 text-sm text-[var(--color-text-secondary)] space-y-2">
+        <p>Our reliability score (0-100) combines three NHTSA data signals:</p>
+        <ul class="list-disc pl-5 space-y-1">
+          <li><strong>Complaint Rate (50%)</strong> — Complaints per year of production. Fewer complaints = higher score.</li>
+          <li><strong>Recall Rate (25%)</strong> — Recalls per year. Fewer recalls = higher score.</li>
+          <li><strong>Severity Score (25%)</strong> — Weighted incidents: deaths &times; 100, injuries &times; 10, fires &times; 5, crashes &times; 2 per year.</li>
+        </ul>
+        <p>Models with fewer than 3 years of data are excluded to avoid small-sample bias.</p>
+        <p><strong>Source:</strong> NHTSA ODI Complaints Database and Recall Campaigns. This is not an opinion — it's math from public safety data.</p>
+      </div>
+    </details>
+
+    <!-- Most Reliable -->
+    <section class="mb-10">
+      <h2 class="text-xl font-bold text-[var(--color-text)] mb-4">Top 25 Most Reliable Vehicles</h2>
+      <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-[var(--color-border)]">
+              <th class="text-left py-2 px-3 font-semibold">#</th>
+              <th class="text-left py-2 px-3 font-semibold">Vehicle</th>
+              <th class="text-center py-2 px-3 font-semibold">Grade</th>
+              <th class="text-right py-2 px-3 font-semibold">Score</th>
+              <th class="text-right py-2 px-3 font-semibold hidden sm:table-cell">Complaints/yr</th>
+              <th class="text-right py-2 px-3 font-semibold hidden md:table-cell">Recalls/yr</th>
+              <th class="text-right py-2 px-3 font-semibold hidden md:table-cell">Years</th>
+            </tr>
+          </thead>
+          <tbody>
+            {mostReliable.map((m, i) => (
+              <tr class="border-b border-[var(--color-border)] hover:bg-[var(--color-bg)] transition-colors">
+                <td class="py-2 px-3 text-[var(--color-text-secondary)]">{i + 1}</td>
+                <td class="py-2 px-3">
+                  <a href={`/make/${m.slug}`} class="font-medium text-[var(--color-primary)] hover:underline">
+                    {m.make_name} {m.model_name}
+                  </a>
+                </td>
+                <td class="text-center py-2 px-3">
+                  <span class={`font-bold ${gradeColor(m.grade)}`}>{m.grade}</span>
+                </td>
+                <td class="text-right py-2 px-3 font-mono">{m.score}</td>
+                <td class="text-right py-2 px-3 font-mono text-[var(--color-text-secondary)] hidden sm:table-cell">{m.complaintRate}</td>
+                <td class="text-right py-2 px-3 font-mono text-[var(--color-text-secondary)] hidden md:table-cell">{m.recallRate}</td>
+                <td class="text-right py-2 px-3 text-[var(--color-text-secondary)] hidden md:table-cell">{m.first_year}–{m.last_year}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Least Reliable -->
+    <section class="mb-10">
+      <h2 class="text-xl font-bold text-[var(--color-text)] mb-4">25 Least Reliable Vehicles</h2>
+      <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-[var(--color-border)]">
+              <th class="text-left py-2 px-3 font-semibold">#</th>
+              <th class="text-left py-2 px-3 font-semibold">Vehicle</th>
+              <th class="text-center py-2 px-3 font-semibold">Grade</th>
+              <th class="text-right py-2 px-3 font-semibold">Score</th>
+              <th class="text-right py-2 px-3 font-semibold hidden sm:table-cell">Complaints/yr</th>
+              <th class="text-right py-2 px-3 font-semibold hidden md:table-cell">Severity/yr</th>
+              <th class="text-right py-2 px-3 font-semibold hidden md:table-cell">Years</th>
+            </tr>
+          </thead>
+          <tbody>
+            {leastReliable.map((m, i) => (
+              <tr class="border-b border-[var(--color-border)] hover:bg-[var(--color-bg)] transition-colors">
+                <td class="py-2 px-3 text-[var(--color-text-secondary)]">{i + 1}</td>
+                <td class="py-2 px-3">
+                  <a href={`/make/${m.slug}`} class="font-medium text-[var(--color-primary)] hover:underline">
+                    {m.make_name} {m.model_name}
+                  </a>
+                </td>
+                <td class="text-center py-2 px-3">
+                  <span class={`font-bold ${gradeColor(m.grade)}`}>{m.grade}</span>
+                </td>
+                <td class="text-right py-2 px-3 font-mono">{m.score}</td>
+                <td class="text-right py-2 px-3 font-mono text-[var(--color-text-secondary)] hidden sm:table-cell">{m.complaintRate}</td>
+                <td class="text-right py-2 px-3 font-mono text-[var(--color-text-secondary)] hidden md:table-cell">{m.severityScore}</td>
+                <td class="text-right py-2 px-3 text-[var(--color-text-secondary)] hidden md:table-cell">{m.first_year}–{m.last_year}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <div class="text-xs text-[var(--color-text-secondary)] border-t border-[var(--color-border)] pt-4">
+      <p>Data from <a href="https://www.nhtsa.gov" class="underline hover:text-[var(--color-primary)]" target="_blank" rel="noopener">NHTSA</a>. Reliability scores are statistical calculations from public data, not editorial opinions.</p>
+    </div>
+  </div>
+</Base>
