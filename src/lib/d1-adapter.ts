@@ -5,6 +5,8 @@
 // Key difference: D1 uses numbered params (?1, ?2), better-sqlite3 only works with unnamed (?)
 
 import Database from 'better-sqlite3';
+import { copyFileSync, existsSync } from 'node:fs';
+import { basename, join } from 'node:path';
 
 interface D1Result<T = unknown> {
   results: T[];
@@ -32,32 +34,46 @@ function normalizeParams(sql: string): string {
   return sql.replace(/\?(\d+)/g, '?');
 }
 
-export function createD1Adapter(dbPath: string): D1Database {
-  const db = new Database(dbPath, { readonly: true, fileMustExist: true });
-
-  // Self-heal: force DELETE journal mode to prevent WAL issues on :ro mounts.
-  // WAL mode DBs try to create a WAL file even for reads, causing 500 errors.
+// Self-heal WAL mode databases on read-only mounts.
+// WAL mode requires writing a WAL file even for reads, which fails on :ro mounts.
+// Fix: copy to /tmp, convert to DELETE journal mode, use the copy.
+function openDatabase(dbPath: string): InstanceType<typeof Database> {
   try {
-    db.pragma('journal_mode = DELETE');
-  } catch {
-    // Expected to fail on truly read-only filesystems — safe to ignore
+    const db = new Database(dbPath, { readonly: true, fileMustExist: true });
+    // Try a simple prepare to verify the DB is usable
+    db.prepare('SELECT 1').get();
+    // Try to force DELETE mode in case the DB is WAL but mount is writable
+    try { db.pragma('journal_mode = DELETE'); } catch { /* :ro mount, expected */ }
+    return db;
+  } catch (err: any) {
+    if (!err?.message?.includes('readonly database')) throw err;
+
+    // WAL mode on :ro mount — self-heal by copying to /tmp
+    const tmpPath = join('/tmp', `d1-heal-${basename(dbPath)}`);
+    console.warn(`[d1-adapter] WAL mode detected on ${dbPath} — copying to ${tmpPath} and fixing`);
+    copyFileSync(dbPath, tmpPath);
+    // Also copy WAL/SHM files if they exist alongside the DB
+    if (existsSync(dbPath + '-wal')) copyFileSync(dbPath + '-wal', tmpPath + '-wal');
+    if (existsSync(dbPath + '-shm')) copyFileSync(dbPath + '-shm', tmpPath + '-shm');
+
+    // Open writable copy and convert to DELETE mode
+    const fixDb = new Database(tmpPath);
+    fixDb.pragma('journal_mode = DELETE');
+    fixDb.close();
+
+    // Now open as readonly
+    const db = new Database(tmpPath, { readonly: true });
+    console.warn(`[d1-adapter] Self-healed: ${dbPath} → ${tmpPath} (journal_mode=DELETE)`);
+    return db;
   }
+}
+
+export function createD1Adapter(dbPath: string): D1Database {
+  const db = openDatabase(dbPath);
 
   return {
     prepare(sql: string): D1PreparedStatement {
-      let stmt: ReturnType<InstanceType<typeof Database>['prepare']>;
-      try {
-        stmt = db.prepare(normalizeParams(sql));
-      } catch (err: any) {
-        if (err?.message?.includes('readonly database')) {
-          throw new Error(
-            `SQLite readonly error — DB may be in WAL mode. ` +
-            `Fix: sqlite3 ${dbPath} "PRAGMA journal_mode=DELETE; VACUUM;" then re-upload. ` +
-            `Original: ${err.message}`
-          );
-        }
-        throw err;
-      }
+      const stmt = db.prepare(normalizeParams(sql));
 
       function makeBindResult(params: unknown[]) {
         return {
