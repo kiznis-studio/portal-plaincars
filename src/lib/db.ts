@@ -1,5 +1,13 @@
 // PlainCars D1 query library
 
+// --- Targeted query cache (permanent, for high-frequency stable queries) ---
+const queryCache = new Map<string, any>();
+export function getQueryCacheSize(): number { return queryCache.size; }
+function cached<T>(key: string, compute: () => Promise<T>): Promise<T> {
+  if (queryCache.has(key)) return Promise.resolve(queryCache.get(key) as T);
+  return compute().then(result => { queryCache.set(key, result); return result; });
+}
+
 export interface Make {
   make_id: string;
   make_name: string;
@@ -109,10 +117,12 @@ export interface ModelYearWithNames extends ModelYear {
 // --- Makes ---
 
 export async function getAllMakes(db: D1Database): Promise<Make[]> {
-  const { results } = await db.prepare(
-    'SELECT * FROM makes ORDER BY complaint_count DESC'
-  ).all<Make>();
-  return results;
+  return cached('getAllMakes', async () => {
+    const { results } = await db.prepare(
+      'SELECT * FROM makes ORDER BY complaint_count DESC'
+    ).all<Make>();
+    return results;
+  });
 }
 
 export async function getMakeBySlug(db: D1Database, slug: string): Promise<Make | null> {
@@ -199,61 +209,69 @@ export async function getRecentRecalls(db: D1Database, limit: number = 50): Prom
 // --- Stats ---
 
 export async function getNationalStats(db: D1Database) {
-  try {
-    const stat = await db.prepare("SELECT value FROM _stats WHERE key = 'national_stats'").first<{ value: string }>();
-    if (stat) return JSON.parse(stat.value) as {
+  return cached('getNationalStats', async () => {
+    try {
+      const stat = await db.prepare("SELECT value FROM _stats WHERE key = 'national_stats'").first<{ value: string }>();
+      if (stat) return JSON.parse(stat.value) as {
+        total_makes: number; total_models: number; total_complaints: number;
+        total_recalls: number; total_deaths: number; total_injuries: number;
+      };
+    } catch { /* _stats may not exist yet */ }
+    return db.prepare(`
+      SELECT
+        (SELECT COUNT(*) FROM makes) as total_makes,
+        (SELECT COUNT(*) FROM models) as total_models,
+        (SELECT SUM(complaint_count) FROM makes) as total_complaints,
+        (SELECT COUNT(*) FROM recalls) as total_recalls,
+        (SELECT SUM(death_count) FROM model_years) as total_deaths,
+        (SELECT SUM(injury_count) FROM model_years) as total_injuries
+    `).first<{
       total_makes: number; total_models: number; total_complaints: number;
       total_recalls: number; total_deaths: number; total_injuries: number;
-    };
-  } catch { /* _stats may not exist yet */ }
-  return db.prepare(`
-    SELECT
-      (SELECT COUNT(*) FROM makes) as total_makes,
-      (SELECT COUNT(*) FROM models) as total_models,
-      (SELECT SUM(complaint_count) FROM makes) as total_complaints,
-      (SELECT COUNT(*) FROM recalls) as total_recalls,
-      (SELECT SUM(death_count) FROM model_years) as total_deaths,
-      (SELECT SUM(injury_count) FROM model_years) as total_injuries
-  `).first<{
-    total_makes: number; total_models: number; total_complaints: number;
-    total_recalls: number; total_deaths: number; total_injuries: number;
-  }>();
+    }>();
+  });
 }
 
 // --- Rankings ---
 
 export async function getMostComplainedModels(db: D1Database, limit: number = 100) {
-  const { results } = await db.prepare(`
-    SELECT m.*, mk.make_name
-    FROM models m JOIN makes mk ON m.make_id = mk.make_id
-    ORDER BY m.complaint_count DESC
-    LIMIT ?
-  `).bind(limit).all();
-  return results;
+  return cached(`getMostComplainedModels:${limit}`, async () => {
+    const { results } = await db.prepare(`
+      SELECT m.*, mk.make_name
+      FROM models m JOIN makes mk ON m.make_id = mk.make_id
+      ORDER BY m.complaint_count DESC
+      LIMIT ?
+    `).bind(limit).all();
+    return results;
+  });
 }
 
 export async function getMostDangerousModelYears(db: D1Database, limit: number = 100) {
-  const { results } = await db.prepare(`
-    SELECT my.*, mk.make_name, mo.model_name
-    FROM model_years my
-    JOIN makes mk ON my.make_id = mk.make_id
-    JOIN models mo ON my.model_id = mo.model_id
-    WHERE my.death_count > 0 OR my.crash_count > 10
-    ORDER BY my.death_count DESC, my.crash_count DESC
-    LIMIT ?
-  `).bind(limit).all();
-  return results;
+  return cached(`getMostDangerousModelYears:${limit}`, async () => {
+    const { results } = await db.prepare(`
+      SELECT my.*, mk.make_name, mo.model_name
+      FROM model_years my
+      JOIN makes mk ON my.make_id = mk.make_id
+      JOIN models mo ON my.model_id = mo.model_id
+      WHERE my.death_count > 0 OR my.crash_count > 10
+      ORDER BY my.death_count DESC, my.crash_count DESC
+      LIMIT ?
+    `).bind(limit).all();
+    return results;
+  });
 }
 
 export async function getMostRecalledModels(db: D1Database, limit: number = 100) {
-  const { results } = await db.prepare(`
-    SELECT m.*, mk.make_name
-    FROM models m JOIN makes mk ON m.make_id = mk.make_id
-    WHERE m.recall_count > 0
-    ORDER BY m.recall_count DESC
-    LIMIT ?
-  `).bind(limit).all();
-  return results;
+  return cached(`getMostRecalledModels:${limit}`, async () => {
+    const { results } = await db.prepare(`
+      SELECT m.*, mk.make_name
+      FROM models m JOIN makes mk ON m.make_id = mk.make_id
+      WHERE m.recall_count > 0
+      ORDER BY m.recall_count DESC
+      LIMIT ?
+    `).bind(limit).all();
+    return results;
+  });
 }
 
 // --- State Map ---
@@ -338,31 +356,33 @@ export interface StateVehicle {
 }
 
 export async function getAllStates(db: D1Database): Promise<StateInfo[]> {
-  try {
-    const stat = await db.prepare("SELECT value FROM _stats WHERE key = 'state_complaints'").first<{ value: string }>();
-    if (stat) {
-      const data = JSON.parse(stat.value) as { state: string; complaint_count: number }[];
-      return data
-        .filter(r => STATE_MAP[r.state])
-        .map(r => ({ code: r.state, name: STATE_MAP[r.state].name, slug: STATE_MAP[r.state].slug, complaint_count: r.complaint_count }));
-    }
-  } catch { /* _stats may not exist yet */ }
-  const { results } = await db.prepare(
-    `SELECT state, COUNT(*) as complaint_count
-     FROM complaints
-     WHERE state IS NOT NULL AND state != ''
-     GROUP BY state
-     ORDER BY complaint_count DESC`
-  ).all<{ state: string; complaint_count: number }>();
+  return cached('getAllStates', async () => {
+    try {
+      const stat = await db.prepare("SELECT value FROM _stats WHERE key = 'state_complaints'").first<{ value: string }>();
+      if (stat) {
+        const data = JSON.parse(stat.value) as { state: string; complaint_count: number }[];
+        return data
+          .filter(r => STATE_MAP[r.state])
+          .map(r => ({ code: r.state, name: STATE_MAP[r.state].name, slug: STATE_MAP[r.state].slug, complaint_count: r.complaint_count }));
+      }
+    } catch { /* _stats may not exist yet */ }
+    const { results } = await db.prepare(
+      `SELECT state, COUNT(*) as complaint_count
+       FROM complaints
+       WHERE state IS NOT NULL AND state != ''
+       GROUP BY state
+       ORDER BY complaint_count DESC`
+    ).all<{ state: string; complaint_count: number }>();
 
-  return results
-    .filter(r => STATE_MAP[r.state])
-    .map(r => ({
-      code: r.state,
-      name: STATE_MAP[r.state].name,
-      slug: STATE_MAP[r.state].slug,
-      complaint_count: r.complaint_count,
-    }));
+    return results
+      .filter(r => STATE_MAP[r.state])
+      .map(r => ({
+        code: r.state,
+        name: STATE_MAP[r.state].name,
+        slug: STATE_MAP[r.state].slug,
+        complaint_count: r.complaint_count,
+      }));
+  });
 }
 
 export function getStateBySlug(slug: string): { code: string; name: string; slug: string } | null {
@@ -577,23 +597,25 @@ export async function getInvestigationsByModelId(db: D1Database, modelId: string
 }
 
 export async function getInvestigationStats(db: D1Database) {
-  return db.prepare(`
-    SELECT
-      COUNT(*) as total,
-      SUM(CASE WHEN status = 'O' THEN 1 ELSE 0 END) as open_count,
-      SUM(CASE WHEN status = 'C' THEN 1 ELSE 0 END) as closed_count,
-      SUM(CASE WHEN investigation_type = 'PE' THEN 1 ELSE 0 END) as pe_count,
-      SUM(CASE WHEN investigation_type = 'EA' THEN 1 ELSE 0 END) as ea_count,
-      SUM(CASE WHEN investigation_type = 'RQ' THEN 1 ELSE 0 END) as rq_count
-    FROM investigations
-  `).first<{
-    total: number;
-    open_count: number;
-    closed_count: number;
-    pe_count: number;
-    ea_count: number;
-    rq_count: number;
-  }>();
+  return cached('getInvestigationStats', () =>
+    db.prepare(`
+      SELECT
+        COUNT(*) as total,
+        SUM(CASE WHEN status = 'O' THEN 1 ELSE 0 END) as open_count,
+        SUM(CASE WHEN status = 'C' THEN 1 ELSE 0 END) as closed_count,
+        SUM(CASE WHEN investigation_type = 'PE' THEN 1 ELSE 0 END) as pe_count,
+        SUM(CASE WHEN investigation_type = 'EA' THEN 1 ELSE 0 END) as ea_count,
+        SUM(CASE WHEN investigation_type = 'RQ' THEN 1 ELSE 0 END) as rq_count
+      FROM investigations
+    `).first<{
+      total: number;
+      open_count: number;
+      closed_count: number;
+      pe_count: number;
+      ea_count: number;
+      rq_count: number;
+    }>()
+  );
 }
 
 // --- Complaint Trends ---
