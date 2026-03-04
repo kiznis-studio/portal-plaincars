@@ -8,3 +8,6 @@ scripts
 wrangler.toml
 .dev.vars
 .wrangler
+keys
+*.db
+.env*

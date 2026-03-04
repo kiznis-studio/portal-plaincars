@@ -44,6 +44,14 @@ function openDatabase(dbPath: string): InstanceType<typeof Database> {
     db.prepare('SELECT 1').get();
     // Try to force DELETE mode in case the DB is WAL but mount is writable
     try { db.pragma('journal_mode = DELETE'); } catch { /* :ro mount, expected */ }
+
+    // Performance pragmas — safe on :ro mounts (these are session-level, not persisted)
+    try {
+      db.pragma('cache_size = -65536');    // 64MB page cache (default ~2MB)
+      db.pragma('mmap_size = 268435456');  // 256MB mmap — OS page cache handles I/O
+      db.pragma('temp_store = MEMORY');    // Temp tables in RAM
+    } catch { /* non-critical — defaults are fine */ }
+
     return db;
   } catch (err: any) {
     if (!err?.message?.includes('readonly database')) throw err;
@@ -61,8 +69,14 @@ function openDatabase(dbPath: string): InstanceType<typeof Database> {
     fixDb.pragma('journal_mode = DELETE');
     fixDb.close();
 
-    // Now open as readonly
+    // Now open as readonly with performance pragmas
     const db = new Database(tmpPath, { readonly: true });
+    try {
+      db.pragma('cache_size = -65536');
+      db.pragma('mmap_size = 268435456');
+      db.pragma('temp_store = MEMORY');
+    } catch { /* non-critical */ }
+
     console.warn(`[d1-adapter] Self-healed: ${dbPath} → ${tmpPath} (journal_mode=DELETE)`);
     return db;
   }

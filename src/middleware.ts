@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import { isbot } from 'isbot';
 import { createD1Adapter } from './lib/d1-adapter';
 
-// Initialize DB adapter once (persistent across requests — Node.js long-lived process)
+// --- DB initialization (single-DB template — multi-DB portals customize this section) ---
 const DATABASE_PATH = process.env.DATABASE_PATH || '/data/portal.db';
 let db: ReturnType<typeof createD1Adapter> | null = null;
 function getDb() {
@@ -14,39 +14,33 @@ function getDb() {
   return db;
 }
 
-// In-memory rate limiter — protects all endpoints from scraper/unknown bot abuse
-// Known bots (Googlebot, GPTBot, ClaudeBot, etc.) bypass rate limiting via isbot library
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
-const PAGE_RATE_LIMIT = 60; // page requests per minute per IP
-const API_RATE_LIMIT = 30; // API requests per minute per IP
-const RATE_WINDOW = 60_000; // 1 minute
+// --- Concurrency guard ---
+// Hard cap on simultaneous inflight requests. Returns 503 if exceeded.
+// Cloudflare handles DDoS/bot protection at the edge (authenticated origin pull).
+let inflightRequests = 0;
+const MAX_CONCURRENT = 15;
 
-function isRateLimited(ip: string, limit: number): boolean {
-  const now = Date.now();
-  const entry = rateLimitMap.get(ip);
+// --- Event loop lag tracking ---
+let eventLoopLag = 0;
+const lagInterval = setInterval(() => {
+  const start = performance.now();
+  setImmediate(() => { eventLoopLag = performance.now() - start; });
+}, 1000);
+lagInterval.unref();
 
-  if (!entry || now > entry.resetAt) {
-    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_WINDOW });
-    return false;
-  }
-
-  entry.count++;
-  return entry.count > limit;
-}
-
-function cleanupRateLimits() {
-  const now = Date.now();
-  if (rateLimitMap.size > 1000) {
-    for (const [ip, entry] of rateLimitMap) {
-      if (now > entry.resetAt) rateLimitMap.delete(ip);
-    }
-  }
-}
-
-// In-memory response cache for rendered pages (LRU-style with TTL)
+// --- In-memory response cache (5min TTL, 500 entries) ---
 const responseCache = new Map<string, { body: string; headers: Record<string, string>; expiry: number }>();
-const CACHE_TTL = 300_000; // 5 minutes
+const CACHE_TTL = 300_000;
 const MAX_CACHE_ENTRIES = 500;
+
+// Interval-based cleanup instead of per-request cleanup
+const cleanupInterval = setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of responseCache) {
+    if (now > entry.expiry) responseCache.delete(key);
+  }
+}, 600_000); // every 10 minutes
+cleanupInterval.unref();
 
 function getCachedResponse(key: string): Response | null {
   const entry = responseCache.get(key);
@@ -61,18 +55,14 @@ function getCachedResponse(key: string): Response | null {
 
 function cacheResponse(key: string, body: string, headers: Record<string, string>) {
   if (responseCache.size >= MAX_CACHE_ENTRIES) {
-    // Evict oldest entry
     const firstKey = responseCache.keys().next().value;
     if (firstKey) responseCache.delete(firstKey);
   }
   responseCache.set(key, { body, headers, expiry: Date.now() + CACHE_TTL });
 }
 
-function getClientIp(request: Request): string {
-  return request.headers.get('cf-connecting-ip')
-    || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-    || 'unknown';
-}
+// Exported for health endpoint
+export { inflightRequests, eventLoopLag, responseCache };
 
 export const onRequest = defineMiddleware(async (context, next) => {
   const path = context.url.pathname;
@@ -80,50 +70,58 @@ export const onRequest = defineMiddleware(async (context, next) => {
   // Inject D1-compatible DB adapter into locals
   (context.locals as any).runtime = { env: { DB: getDb() } };
 
-  // Skip rate limiting and caching for static assets
-  if (path.startsWith('/_astro/') || path.startsWith('/favicon')) {
-    return next();
-  }
+  // Health endpoint bypasses all middleware logic
+  if (path === '/health') return next();
 
-  const ip = getClientIp(context.request);
-  const ua = context.request.headers.get('user-agent') || '';
-  cleanupRateLimits();
+  // Skip for static assets
+  if (path.startsWith('/_astro/') || path.startsWith('/favicon')) return next();
 
-  // Rate limit unknown traffic only — let search engines and AI bots crawl freely
-  if (!isbot(ua)) {
-    const limit = path.startsWith('/api/') ? API_RATE_LIMIT : PAGE_RATE_LIMIT;
-    if (isRateLimited(ip, limit)) {
-      return new Response('Too many requests', {
-        status: 429,
-        headers: { 'Retry-After': '60', 'Cache-Control': 'no-store' },
-      });
-    }
-  }
-
-  // Serve from in-memory cache for GET requests (bots hit the same pages repeatedly)
+  // Serve from in-memory cache for GET requests
   if (context.request.method === 'GET') {
     const cacheKey = path + context.url.search;
     const cached = getCachedResponse(cacheKey);
     if (cached) return cached;
 
-    const response = await next();
-
-    // Cache successful HTML/XML responses
-    if (response.status === 200) {
-      const ct = response.headers.get('content-type') || '';
-      if (ct.includes('text/html') || ct.includes('xml')) {
-        const ttl = ct.includes('xml') ? 86400 : 3600;
-        const body = await response.text();
-        const headers: Record<string, string> = {
-          'Content-Type': ct,
-          'Cache-Control': `public, max-age=300, s-maxage=${ttl}`,
-        };
-        cacheResponse(cacheKey, body, headers);
-        return new Response(body, { headers: { ...headers, 'X-Cache': 'MISS' } });
-      }
+    // Concurrency guard — known bots (Googlebot, etc.) bypass since they're the traffic we want
+    const ua = context.request.headers.get('user-agent') || '';
+    const isBotUA = isbot(ua);
+    if (!isBotUA && inflightRequests >= MAX_CONCURRENT) {
+      return new Response('Service busy', {
+        status: 503,
+        headers: { 'Retry-After': '5', 'Cache-Control': 'no-store' },
+      });
     }
 
-    return response;
+    if (!isBotUA) inflightRequests++;
+    const start = performance.now();
+    try {
+      const response = await next();
+
+      // Slow request logging
+      const elapsed = performance.now() - start;
+      if (elapsed > 500) {
+        console.warn(`[slow] ${path} ${Math.round(elapsed)}ms lag=${Math.round(eventLoopLag)}ms`);
+      }
+
+      // Cache successful HTML/XML responses
+      if (response.status === 200) {
+        const ct = response.headers.get('content-type') || '';
+        if (ct.includes('text/html') || ct.includes('xml')) {
+          const ttl = ct.includes('xml') ? 86400 : 3600;
+          const body = await response.text();
+          const headers: Record<string, string> = {
+            'Content-Type': ct,
+            'Cache-Control': `public, max-age=300, s-maxage=${ttl}`,
+          };
+          cacheResponse(cacheKey, body, headers);
+          return new Response(body, { headers: { ...headers, 'X-Cache': 'MISS' } });
+        }
+      }
+
+      return response;
+    } finally {
+      if (!isBotUA) inflightRequests--;
+    }
   }
 
   return next();
