@@ -30,7 +30,7 @@ lagInterval.unref();
 
 // --- In-memory response cache (permanent — no TTL, 1500 entries) ---
 const responseCache = new Map<string, { body: string; headers: Record<string, string> }>();
-const MAX_CACHE_ENTRIES = 1500;
+const MAX_CACHE_ENTRIES = 500;
 
 function getCachedResponse(key: string): Response | null {
   const entry = responseCache.get(key);
