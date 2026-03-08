@@ -680,3 +680,18 @@ export const INVESTIGATION_TYPES: Record<string, string> = {
   DP: 'Defect Petition',
   AQ: 'Audit Query',
 };
+
+export async function warmQueryCache(db: D1Database): Promise<number> {
+  const start = Date.now();
+  await Promise.all([
+    getAllMakes(db),
+    getNationalStats(db),
+    getMostComplainedModels(db),
+    getMostDangerousModelYears(db),
+    getMostRecalledModels(db),
+    getAllStates(db),
+    getInvestigationStats(db),
+  ]);
+  console.log(`[cache] Warmed ${queryCache.size} queries in ${Date.now() - start}ms`);
+  return queryCache.size;
+}
