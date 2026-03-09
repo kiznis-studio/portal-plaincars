@@ -360,10 +360,10 @@ export async function getAllStates(db: D1Database): Promise<StateInfo[]> {
     try {
       const stat = await db.prepare("SELECT value FROM _stats WHERE key = 'state_complaints'").first<{ value: string }>();
       if (stat) {
-        const data = JSON.parse(stat.value) as { state: string; complaint_count: number }[];
+        const data = JSON.parse(stat.value) as { state: string; count?: number; complaint_count?: number }[];
         return data
           .filter(r => STATE_MAP[r.state])
-          .map(r => ({ code: r.state, name: STATE_MAP[r.state].name, slug: STATE_MAP[r.state].slug, complaint_count: r.complaint_count }));
+          .map(r => ({ code: r.state, name: STATE_MAP[r.state].name, slug: STATE_MAP[r.state].slug, complaint_count: r.complaint_count ?? r.count ?? 0 }));
       }
     } catch { /* _stats may not exist yet */ }
     const { results } = await db.prepare(
