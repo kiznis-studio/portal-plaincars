@@ -7,6 +7,7 @@ import { warmQueryCache } from './lib/db';
 // --- DB initialization ---
 const DATABASE_PATH = process.env.DATABASE_PATH || '/data/portal.db';
 const VIN_DB_PATH = process.env.VIN_DB_PATH || '/data/vin-decoder.db';
+const VIN_CACHE_PATH = process.env.VIN_CACHE_PATH || '/data/cache/vin-api-cache.db';
 let db: ReturnType<typeof createD1Adapter> | null = null;
 let vinDb: ReturnType<typeof createD1Adapter> | null = null;
 function getDb() {
@@ -120,7 +121,7 @@ function getEdgeTtl(path: string): number {
 
 export const onRequest = defineMiddleware(async (context, next) => {
   const path = context.url.pathname;
-  (context.locals as any).runtime = { env: { DB: getDb(), VIN_DB: getVinDb() } };
+  (context.locals as any).runtime = { env: { DB: getDb(), VIN_DB: getVinDb(), VIN_CACHE_PATH } };
 
   if (path === '/health') {
     if (!cacheWarmed) {

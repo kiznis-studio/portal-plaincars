@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 import { inflightRequests, eventLoopLag, cacheWarmed, cacheWarmedAt, getCacheStats } from '../middleware';
 import { getQueryCacheSize } from '../lib/db';
 import { dbMeta } from '../lib/d1-adapter';
+import { getApiCacheStats } from '../lib/vin-decoder';
 
 export const prerender = false;
 
@@ -53,6 +54,7 @@ export const GET: APIRoute = async ({ locals }) => {
       mmapSizeMB: Math.round(dbMeta.mmapSize / 1048576),
       fileSizeMB: Math.round(dbMeta.fileSizeBytes / 1048576),
     },
+    vinApiCache: getApiCacheStats(),
   }), {
     status: allDbOk ? 200 : 503,
     headers: {

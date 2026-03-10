@@ -8,15 +8,16 @@ import { decodeVin } from '../../lib/vin-decoder';
 
 const db = Astro.locals.runtime.env.DB;
 const vinDb = Astro.locals.runtime.env.VIN_DB;
+const vinCachePath = Astro.locals.runtime.env.VIN_CACHE_PATH;
 const { vin } = Astro.params;
 const vinUpper = (vin || '').toUpperCase();
 
 if (vinUpper.length !== 17) return Astro.redirect('/vin');
 
-// Decode VIN locally (falls back to NHTSA API if local decode is incomplete)
+// Decode VIN locally (falls back to API cache, then NHTSA API)
 const [complaints, { decoded: vinResult, source: decodeSource }] = await Promise.all([
   getComplaintsByVin(db, vinUpper),
-  decodeVin(vinDb, vinUpper),
+  decodeVin(vinDb, vinUpper, vinCachePath),
 ]);
 
 const make = vinResult.make;
@@ -255,7 +256,7 @@ const specs = [
     <AdSlot slot="bottom" />
 
     <div class="mt-8 text-sm text-[var(--color-text-secondary)]">
-      <p>VIN decoding: <a href="https://vpic.nhtsa.dot.gov/" class="text-[var(--color-primary)] hover:underline" target="_blank" rel="noopener">NHTSA vPIC Database</a>{decodeSource !== 'local' && ' (API fallback)'}. Complaints: <a href="https://www.nhtsa.gov/recalls-complaints/complaints" class="text-[var(--color-primary)] hover:underline" target="_blank" rel="noopener">NHTSA Complaints Database</a>.</p>
+      <p>VIN decoding: <a href="https://vpic.nhtsa.dot.gov/" class="text-[var(--color-primary)] hover:underline" target="_blank" rel="noopener">NHTSA vPIC Database</a>{decodeSource === 'api' && ' (API fallback)'}{decodeSource === 'api-cached' && ' (cached)'}. Complaints: <a href="https://www.nhtsa.gov/recalls-complaints/complaints" class="text-[var(--color-primary)] hover:underline" target="_blank" rel="noopener">NHTSA Complaints Database</a>.</p>
     </div>
   </div>
   <script type="application/ld+json" set:html={breadcrumbSchema} />

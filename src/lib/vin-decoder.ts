@@ -7,9 +7,15 @@
  *   1. WMI table → Make & Manufacturer (always works, chars 1-3)
  *   2. Year code → Model Year (always works, char 10)
  *   3. Pattern matching → Body, Drive, Engine, Plant (when pattern matches)
- *   4. NHTSA API fallback → full decode (only when local fails)
+ *   4. API cache → saved results from previous NHTSA API fallbacks
+ *   5. NHTSA API fallback → full decode (saves to API cache for next time)
  *
- * The vin-decoder.db is mounted alongside plaincars.db in the Docker container.
+ * The vin-decoder.db is mounted :ro alongside plaincars.db in the Docker container.
+ * The API cache lives in a writable volume at /data/cache/vin-api-cache.db.
+ *
+ * Cache key: VIN descriptor (chars 1-8) — all VINs sharing WMI+VDS decode
+ * to the same make/model/specs. Year is stored separately (char 10 = year code).
+ * One cached API response covers thousands of serial number variants.
  */
 
 export interface VinDecodeResult {
@@ -252,6 +258,34 @@ export async function decodeVinLocal(
     }
   }
 
+  // Step 5: If vPIC pattern matching didn't get make+model, check api_patterns table
+  // (populated by merge-vin-cache.mjs from previous API fallback results)
+  if ((!result.make || !result.model) && result.year) {
+    try {
+      const descriptor = v.slice(0, 8);
+      const apiRow = await vinDb.prepare(
+        'SELECT * FROM api_patterns WHERE descriptor = ? AND year = ?'
+      ).bind(descriptor, result.year).first<any>();
+      if (apiRow && apiRow.make && apiRow.model) {
+        result.make = result.make || apiRow.make;
+        result.model = result.model || apiRow.model;
+        if (!result.bodyClass && apiRow.body_class) result.bodyClass = apiRow.body_class;
+        if (!result.driveType && apiRow.drive_type) result.driveType = apiRow.drive_type;
+        if (!result.engineCylinders && apiRow.engine_cylinders) result.engineCylinders = apiRow.engine_cylinders;
+        if (!result.displacementL && apiRow.displacement_l) result.displacementL = apiRow.displacement_l;
+        if (!result.fuelType && apiRow.fuel_type) result.fuelType = apiRow.fuel_type;
+        if (!result.plantCity && apiRow.plant_city) result.plantCity = apiRow.plant_city;
+        if (!result.plantState && apiRow.plant_state) result.plantState = apiRow.plant_state;
+        if (!result.plantCountry && apiRow.plant_country) result.plantCountry = apiRow.plant_country;
+        if (!result.vehicleType && apiRow.vehicle_type) result.vehicleType = apiRow.vehicle_type;
+        if (!result.gvwr && apiRow.gvwr) result.gvwr = apiRow.gvwr;
+        if (!result.manufacturer && apiRow.manufacturer) result.manufacturer = apiRow.manufacturer;
+      }
+    } catch {
+      // api_patterns table may not exist yet — that's fine
+    }
+  }
+
   // Determine decode quality
   if (result.make && result.model && result.year) {
     result.errorCode = '0';
@@ -267,30 +301,174 @@ export async function decodeVinLocal(
   return result;
 }
 
+// --- API Cache: writable SQLite that learns from NHTSA API fallbacks ---
+
+import Database from 'better-sqlite3';
+import { existsSync, mkdirSync } from 'node:fs';
+import { dirname } from 'node:path';
+
+// VIN descriptor = chars 1-8 (WMI + VDS). All VINs with the same descriptor
+// decode to the same make/model/specs. Year comes from char 10 separately.
+function vinDescriptor(vin: string): string {
+  return vin.slice(0, 8);
+}
+
+let apiCacheDb: InstanceType<typeof Database> | null = null;
+let apiCacheReady = false;
+let apiCacheStats = { hits: 0, misses: 0, writes: 0 };
+
+export function getApiCacheStats() { return apiCacheStats; }
+
+function getApiCache(cachePath: string | undefined): InstanceType<typeof Database> | null {
+  if (apiCacheDb) return apiCacheDb;
+  if (apiCacheReady) return null; // Already tried, failed
+  apiCacheReady = true;
+
+  if (!cachePath) return null;
+
+  try {
+    const dir = dirname(cachePath);
+    if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+    apiCacheDb = new Database(cachePath);
+    apiCacheDb.pragma('journal_mode = WAL');
+    apiCacheDb.pragma('synchronous = NORMAL');
+    apiCacheDb.exec(`
+      CREATE TABLE IF NOT EXISTS vin_cache (
+        descriptor TEXT NOT NULL,
+        year TEXT NOT NULL,
+        make TEXT NOT NULL DEFAULT '',
+        model TEXT NOT NULL DEFAULT '',
+        body_class TEXT NOT NULL DEFAULT '',
+        drive_type TEXT NOT NULL DEFAULT '',
+        engine_cylinders TEXT NOT NULL DEFAULT '',
+        displacement_l TEXT NOT NULL DEFAULT '',
+        fuel_type TEXT NOT NULL DEFAULT '',
+        plant_city TEXT NOT NULL DEFAULT '',
+        plant_state TEXT NOT NULL DEFAULT '',
+        plant_country TEXT NOT NULL DEFAULT '',
+        vehicle_type TEXT NOT NULL DEFAULT '',
+        gvwr TEXT NOT NULL DEFAULT '',
+        manufacturer TEXT NOT NULL DEFAULT '',
+        cached_at TEXT NOT NULL DEFAULT (datetime('now')),
+        hit_count INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (descriptor, year)
+      );
+    `);
+    return apiCacheDb;
+  } catch (err) {
+    console.warn('[vin-cache] Failed to open API cache:', err);
+    return null;
+  }
+}
+
+function lookupApiCache(
+  cachePath: string | undefined, descriptor: string, year: string
+): VinDecodeResult | null {
+  const db = getApiCache(cachePath);
+  if (!db) return null;
+
+  try {
+    const row = db.prepare(
+      'SELECT * FROM vin_cache WHERE descriptor = ? AND year = ?'
+    ).get(descriptor, year) as any;
+    if (!row || !row.make || !row.model) return null;
+
+    // Bump hit count (fire-and-forget)
+    try {
+      db.prepare('UPDATE vin_cache SET hit_count = hit_count + 1 WHERE descriptor = ? AND year = ?')
+        .run(descriptor, year);
+    } catch { /* non-critical */ }
+
+    apiCacheStats.hits++;
+    return {
+      vin: '', // Caller fills this in
+      make: row.make,
+      model: row.model,
+      year: row.year,
+      bodyClass: row.body_class,
+      driveType: row.drive_type,
+      engineCylinders: row.engine_cylinders,
+      displacementL: row.displacement_l,
+      fuelType: row.fuel_type,
+      plantCity: row.plant_city,
+      plantState: row.plant_state,
+      plantCountry: row.plant_country,
+      vehicleType: row.vehicle_type,
+      gvwr: row.gvwr,
+      manufacturer: row.manufacturer,
+      errorCode: '0',
+      errorText: '',
+      source: 'api', // Originally from API
+    };
+  } catch {
+    return null;
+  }
+}
+
+function saveToApiCache(
+  cachePath: string | undefined, descriptor: string, decoded: VinDecodeResult
+): void {
+  const db = getApiCache(cachePath);
+  if (!db || !decoded.make || !decoded.model) return;
+
+  try {
+    db.prepare(`
+      INSERT OR REPLACE INTO vin_cache
+        (descriptor, year, make, model, body_class, drive_type, engine_cylinders,
+         displacement_l, fuel_type, plant_city, plant_state, plant_country,
+         vehicle_type, gvwr, manufacturer)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      descriptor, decoded.year, decoded.make, decoded.model,
+      decoded.bodyClass, decoded.driveType, decoded.engineCylinders,
+      decoded.displacementL, decoded.fuelType, decoded.plantCity,
+      decoded.plantState, decoded.plantCountry, decoded.vehicleType,
+      decoded.gvwr, decoded.manufacturer
+    );
+    apiCacheStats.writes++;
+  } catch (err) {
+    console.warn('[vin-cache] Failed to save:', err);
+  }
+}
+
 /**
- * Full VIN decode with local-first, API-fallback strategy.
+ * Full VIN decode with local-first, cache, API-fallback strategy.
  *
- * Returns the same shape as the NHTSA API response but decoded locally
- * when possible. Falls back to NHTSA API only when local decode is insufficient.
+ * Priority: local vPIC DB → API cache → NHTSA API (saved to cache).
+ * Cache key is VIN descriptor (chars 1-8) + year, so one API call
+ * covers all serial number variants of the same vehicle.
  */
 export async function decodeVin(
   vinDb: any | null,
-  vin: string
-): Promise<{ decoded: VinDecodeResult; source: 'local' | 'api' | 'partial' }> {
+  vin: string,
+  apiCachePath?: string
+): Promise<{ decoded: VinDecodeResult; source: 'local' | 'api' | 'api-cached' | 'partial' }> {
   const v = vin.toUpperCase();
+  const desc = vinDescriptor(v);
+  const yearCode = v[9];
+  const pos7 = v[6];
+  const year = resolveYear(yearCode, pos7);
+  const yearStr = year ? String(year) : '';
 
-  // Try local decode first
+  // 1. Try local vPIC decode
   if (vinDb) {
     const local = await decodeVinLocal(vinDb, v);
     if (local.make && local.model && local.year) {
-      return {
-        decoded: local as VinDecodeResult,
-        source: 'local',
-      };
+      return { decoded: local as VinDecodeResult, source: 'local' };
     }
   }
 
-  // Fall back to NHTSA API
+  // 2. Try API cache (keyed by descriptor + year)
+  if (apiCachePath && yearStr) {
+    const cached = lookupApiCache(apiCachePath, desc, yearStr);
+    if (cached) {
+      cached.vin = v;
+      return { decoded: cached, source: 'api-cached' };
+    }
+    apiCacheStats.misses++;
+  }
+
+  // 3. Fall back to NHTSA API
   try {
     const resp = await fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVin/${v}?format=json`);
     const data = await resp.json() as { Results: Array<{ Variable: string; Value: string | null }> };
@@ -301,31 +479,34 @@ export async function decodeVin(
       return r?.Value && r.Value !== 'Not Applicable' ? r.Value : '';
     };
 
-    return {
-      decoded: {
-        vin: v,
-        make: getVal('Make'),
-        model: getVal('Model'),
-        year: getVal('Model Year'),
-        bodyClass: getVal('Body Class'),
-        driveType: getVal('Drive Type'),
-        engineCylinders: getVal('Engine Number of Cylinders'),
-        displacementL: getVal('Displacement (L)'),
-        fuelType: getVal('Fuel Type - Primary'),
-        plantCity: getVal('Plant City'),
-        plantState: getVal('Plant State'),
-        plantCountry: getVal('Plant Country'),
-        vehicleType: getVal('Vehicle Type'),
-        gvwr: getVal('Gross Vehicle Weight Rating From'),
-        manufacturer: getVal('Manufacturer Name'),
-        errorCode: getVal('Error Code'),
-        errorText: getVal('Error Text'),
-        source: 'api',
-      },
+    const decoded: VinDecodeResult = {
+      vin: v,
+      make: getVal('Make'),
+      model: getVal('Model'),
+      year: getVal('Model Year'),
+      bodyClass: getVal('Body Class'),
+      driveType: getVal('Drive Type'),
+      engineCylinders: getVal('Engine Number of Cylinders'),
+      displacementL: getVal('Displacement (L)'),
+      fuelType: getVal('Fuel Type - Primary'),
+      plantCity: getVal('Plant City'),
+      plantState: getVal('Plant State'),
+      plantCountry: getVal('Plant Country'),
+      vehicleType: getVal('Vehicle Type'),
+      gvwr: getVal('Gross Vehicle Weight Rating From'),
+      manufacturer: getVal('Manufacturer Name'),
+      errorCode: getVal('Error Code'),
+      errorText: getVal('Error Text'),
       source: 'api',
     };
+
+    // Save to API cache for next time
+    if (decoded.make && decoded.model && apiCachePath) {
+      saveToApiCache(apiCachePath, desc, decoded);
+    }
+
+    return { decoded, source: 'api' };
   } catch {
-    // Both failed — return whatever local decode had
     return {
       decoded: {
         vin: v,
