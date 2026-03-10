@@ -438,6 +438,47 @@ export async function getMostComplainedInState(db: D1Database, stateCode: string
   });
 }
 
+// --- Safety Ratings (NCAP) ---
+
+export function renderSafetyStars(rating: string | null): string {
+  if (!rating) return 'Not Rated';
+  const n = parseInt(rating);
+  if (isNaN(n) || n < 1 || n > 5) return 'Not Rated';
+  return '★'.repeat(n) + '☆'.repeat(5 - n);
+}
+
+export async function getTopSafetyRated(db: D1Database, limit = 50): Promise<ModelYearWithNames[]> {
+  return cached(`topSafety:${limit}`, async () => {
+    const { results } = await db.prepare(`
+      SELECT my.*, mk.make_name, mo.model_name
+      FROM model_years my
+      JOIN makes mk ON my.make_id = mk.make_id
+      JOIN models mo ON my.model_id = mo.model_id
+      WHERE my.overall_rating IS NOT NULL AND CAST(my.overall_rating AS INTEGER) >= 4
+      ORDER BY CAST(my.overall_rating AS INTEGER) DESC, my.year DESC
+      LIMIT ?
+    `).bind(limit).all<ModelYearWithNames>();
+    return results;
+  });
+}
+
+export async function getSafetyRatingStats(db: D1Database): Promise<{
+  rated_count: number; avg_overall: number; five_star_count: number; four_star_count: number;
+}> {
+  return cached('safetyStats', async () => {
+    const row = await db.prepare(`
+      SELECT
+        COUNT(*) as rated_count,
+        ROUND(AVG(CAST(overall_rating AS REAL)), 1) as avg_overall,
+        SUM(CASE WHEN CAST(overall_rating AS INTEGER) = 5 THEN 1 ELSE 0 END) as five_star_count,
+        SUM(CASE WHEN CAST(overall_rating AS INTEGER) = 4 THEN 1 ELSE 0 END) as four_star_count
+      FROM model_years
+      WHERE overall_rating IS NOT NULL
+    `).first<{ rated_count: number; avg_overall: number; five_star_count: number; four_star_count: number }>();
+    return row ?? { rated_count: 0, avg_overall: 0, five_star_count: 0, four_star_count: 0 };
+  });
+}
+
 // --- Compare ---
 
 export interface ModelAggregateStats {
@@ -860,6 +901,8 @@ export async function warmQueryCache(db: D1Database): Promise<number> {
     getMostDangerousModelYears(db),
     getMostRecalledModels(db),
     getInvestigationStats(db),
+    getTopSafetyRated(db),
+    getSafetyRatingStats(db),
     getPopularModels(db),
     getModelsForReliability(db),
     getTrendingComplaintModels(db, 'rising'),
