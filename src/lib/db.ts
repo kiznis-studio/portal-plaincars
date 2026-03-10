@@ -426,21 +426,11 @@ export function getStateBySlug(slug: string): { code: string; name: string; slug
 export async function getMostComplainedInState(db: D1Database, stateCode: string, limit: number = 50): Promise<StateVehicle[]> {
   return cached(`complainedInState:${stateCode}:${limit}`, async () => {
     const { results } = await db.prepare(`
-      SELECT
-        mk.make_name, mo.model_name, mo.slug,
-        COUNT(*) as complaint_count,
-        SUM(CASE WHEN c.crash = 'Y' THEN 1 ELSE 0 END) as crash_count,
-        SUM(CASE WHEN c.fire = 'Y' THEN 1 ELSE 0 END) as fire_count,
-        SUM(c.injured) as injury_count,
-        SUM(c.deaths) as death_count,
-        MIN(my.year) as year_min,
-        MAX(my.year) as year_max
-      FROM complaints c
-      JOIN model_years my ON c.my_id = my.my_id
-      JOIN models mo ON my.model_id = mo.model_id
-      JOIN makes mk ON my.make_id = mk.make_id
-      WHERE c.state = ?
-      GROUP BY mo.model_id
+      SELECT make_name, model_name, model_slug as slug,
+             complaint_count, crash_count, fire_count,
+             injury_count, death_count, year_min, year_max
+      FROM state_top_models
+      WHERE state = ?
       ORDER BY complaint_count DESC
       LIMIT ?
     `).bind(stateCode, limit).all<StateVehicle>();
@@ -738,6 +728,8 @@ export async function getRelatedComplaints(db: D1Database, myId: string, compone
 // --- VIN Lookup ---
 
 export async function getComplaintsByVin(db: D1Database, vin: string): Promise<ComplaintWithNames[]> {
+  // NHTSA complaints store truncated 11-char VINs (no serial number)
+  const vinTruncated = vin.toUpperCase().slice(0, 11);
   const { results } = await db.prepare(`
     SELECT c.*, mk.make_name, mo.model_name, my.year
     FROM complaints c
@@ -746,7 +738,7 @@ export async function getComplaintsByVin(db: D1Database, vin: string): Promise<C
     JOIN makes mk ON my.make_id = mk.make_id
     WHERE c.vin = ?
     ORDER BY c.date_added DESC
-  `).bind(vin.toUpperCase()).all<ComplaintWithNames>();
+  `).bind(vinTruncated).all<ComplaintWithNames>();
   return results;
 }
 
@@ -769,18 +761,11 @@ export async function getComponentBySlug(db: D1Database, slug: string): Promise<
 
 export async function getComponentTopModels(db: D1Database, component: string, limit = 30) {
   const { results } = await db.prepare(`
-    SELECT mk.make_name, mo.model_name, mo.slug,
-           COUNT(*) as complaint_count,
-           SUM(CASE WHEN c.crash = 'Y' THEN 1 ELSE 0 END) as crash_count,
-           SUM(CASE WHEN c.fire = 'Y' THEN 1 ELSE 0 END) as fire_count,
-           SUM(c.injured) as injury_count,
-           SUM(c.deaths) as death_count
-    FROM complaints c
-    JOIN model_years my ON c.my_id = my.my_id
-    JOIN models mo ON my.model_id = mo.model_id
-    JOIN makes mk ON my.make_id = mk.make_id
-    WHERE c.component = ?
-    GROUP BY mo.model_id
+    SELECT make_name, model_name, model_slug as slug,
+           complaint_count, crash_count, fire_count,
+           injury_count, death_count
+    FROM component_top_models
+    WHERE component = ?
     ORDER BY complaint_count DESC
     LIMIT ?
   `).bind(component, limit).all();
@@ -833,13 +818,9 @@ export async function getYearTopModels(db: D1Database, year: number, limit = 30)
 
 export async function getYearTopComponents(db: D1Database, year: number, limit = 20) {
   const { results } = await db.prepare(`
-    SELECT c.component, COUNT(*) as complaint_count,
-           SUM(CASE WHEN c.crash = 'Y' THEN 1 ELSE 0 END) as crash_count,
-           SUM(CASE WHEN c.fire = 'Y' THEN 1 ELSE 0 END) as fire_count
-    FROM complaints c
-    JOIN model_years my ON c.my_id = my.my_id
-    WHERE my.year = ?
-    GROUP BY c.component
+    SELECT component, complaint_count, crash_count, fire_count
+    FROM year_top_components
+    WHERE year = ?
     ORDER BY complaint_count DESC
     LIMIT ?
   `).bind(year, limit).all();
