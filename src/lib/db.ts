@@ -392,26 +392,28 @@ export function getStateBySlug(slug: string): { code: string; name: string; slug
 }
 
 export async function getMostComplainedInState(db: D1Database, stateCode: string, limit: number = 50): Promise<StateVehicle[]> {
-  const { results } = await db.prepare(`
-    SELECT
-      mk.make_name, mo.model_name, mo.slug,
-      COUNT(*) as complaint_count,
-      SUM(CASE WHEN c.crash = 'Y' THEN 1 ELSE 0 END) as crash_count,
-      SUM(CASE WHEN c.fire = 'Y' THEN 1 ELSE 0 END) as fire_count,
-      SUM(c.injured) as injury_count,
-      SUM(c.deaths) as death_count,
-      MIN(my.year) as year_min,
-      MAX(my.year) as year_max
-    FROM complaints c
-    JOIN model_years my ON c.my_id = my.my_id
-    JOIN models mo ON my.model_id = mo.model_id
-    JOIN makes mk ON my.make_id = mk.make_id
-    WHERE c.state = ?
-    GROUP BY mo.model_id
-    ORDER BY complaint_count DESC
-    LIMIT ?
-  `).bind(stateCode, limit).all<StateVehicle>();
-  return results;
+  return cached(`complainedInState:${stateCode}:${limit}`, async () => {
+    const { results } = await db.prepare(`
+      SELECT
+        mk.make_name, mo.model_name, mo.slug,
+        COUNT(*) as complaint_count,
+        SUM(CASE WHEN c.crash = 'Y' THEN 1 ELSE 0 END) as crash_count,
+        SUM(CASE WHEN c.fire = 'Y' THEN 1 ELSE 0 END) as fire_count,
+        SUM(c.injured) as injury_count,
+        SUM(c.deaths) as death_count,
+        MIN(my.year) as year_min,
+        MAX(my.year) as year_max
+      FROM complaints c
+      JOIN model_years my ON c.my_id = my.my_id
+      JOIN models mo ON my.model_id = mo.model_id
+      JOIN makes mk ON my.make_id = mk.make_id
+      WHERE c.state = ?
+      GROUP BY mo.model_id
+      ORDER BY complaint_count DESC
+      LIMIT ?
+    `).bind(stateCode, limit).all<StateVehicle>();
+    return results;
+  });
 }
 
 // --- Compare ---
@@ -467,17 +469,19 @@ export async function getModelTopComplaints(db: D1Database, modelId: string, lim
 }
 
 export async function getPopularModels(db: D1Database, limit: number = 50) {
-  const { results } = await db.prepare(`
-    SELECT m.model_id, mk.make_name, m.model_name, m.slug,
-           COUNT(my.my_id) as year_count, m.complaint_count as total_complaints
-    FROM models m
-    JOIN makes mk ON m.make_id = mk.make_id
-    JOIN model_years my ON my.model_id = m.model_id
-    GROUP BY m.model_id
-    ORDER BY year_count DESC, m.complaint_count DESC
-    LIMIT ?
-  `).bind(limit).all();
-  return results;
+  return cached(`popularModels:${limit}`, async () => {
+    const { results } = await db.prepare(`
+      SELECT m.model_id, mk.make_name, m.model_name, m.slug,
+             COUNT(my.my_id) as year_count, m.complaint_count as total_complaints
+      FROM models m
+      JOIN makes mk ON m.make_id = mk.make_id
+      JOIN model_years my ON my.model_id = m.model_id
+      GROUP BY m.model_id
+      ORDER BY year_count DESC, m.complaint_count DESC
+      LIMIT ?
+    `).bind(limit).all();
+    return results;
+  });
 }
 
 export async function getCompareModelsForModel(db: D1Database, modelId: string, limit: number = 5) {
@@ -495,25 +499,27 @@ export async function getCompareModelsForModel(db: D1Database, modelId: string, 
 // --- Reliability ---
 
 export async function getModelsForReliability(db: D1Database, limit = 500) {
-  const { results } = await db.prepare(`
-    SELECT m.model_id, mk.make_name, m.model_name, m.slug,
-           COUNT(my.my_id) as year_count,
-           MIN(my.year) as first_year, MAX(my.year) as last_year,
-           SUM(my.complaint_count) as total_complaints,
-           SUM(my.recall_count) as total_recalls,
-           SUM(my.crash_count) as total_crashes,
-           SUM(my.fire_count) as total_fires,
-           SUM(my.injury_count) as total_injuries,
-           SUM(my.death_count) as total_deaths
-    FROM models m
-    JOIN makes mk ON mk.make_id = m.make_id
-    JOIN model_years my ON my.model_id = m.model_id
-    GROUP BY m.model_id
-    HAVING year_count >= 3
-    ORDER BY total_complaints ASC
-    LIMIT ?
-  `).bind(limit).all();
-  return results;
+  return cached(`modelsForReliability:${limit}`, async () => {
+    const { results } = await db.prepare(`
+      SELECT m.model_id, mk.make_name, m.model_name, m.slug,
+             COUNT(my.my_id) as year_count,
+             MIN(my.year) as first_year, MAX(my.year) as last_year,
+             SUM(my.complaint_count) as total_complaints,
+             SUM(my.recall_count) as total_recalls,
+             SUM(my.crash_count) as total_crashes,
+             SUM(my.fire_count) as total_fires,
+             SUM(my.injury_count) as total_injuries,
+             SUM(my.death_count) as total_deaths
+      FROM models m
+      JOIN makes mk ON mk.make_id = m.make_id
+      JOIN model_years my ON my.model_id = m.model_id
+      GROUP BY m.model_id
+      HAVING year_count >= 3
+      ORDER BY total_complaints ASC
+      LIMIT ?
+    `).bind(limit).all();
+    return results;
+  });
 }
 
 // --- Search ---
@@ -648,29 +654,31 @@ export async function getComplaintTrends(db: D1Database, modelId: string): Promi
 }
 
 export async function getTrendingComplaintModels(db: D1Database, direction: 'rising' | 'falling', limit = 50): Promise<TrendingModel[]> {
-  const order = direction === 'rising' ? 'DESC' : 'ASC';
-  const { results } = await db.prepare(`
-    SELECT
-      r.model_id, mk.make_name, m.model_name, m.slug,
-      r.recent_count, p.prev_count,
-      ROUND((CAST(r.recent_count AS REAL) - p.prev_count) / MAX(p.prev_count, 1) * 100, 1) as change_pct,
-      m.complaint_count as total_complaints
-    FROM (
-      SELECT model_id, SUM(complaint_count) as recent_count
-      FROM complaint_trends WHERE cal_year BETWEEN 2022 AND 2026
-      GROUP BY model_id HAVING recent_count >= 5
-    ) r
-    JOIN (
-      SELECT model_id, SUM(complaint_count) as prev_count
-      FROM complaint_trends WHERE cal_year BETWEEN 2017 AND 2021
-      GROUP BY model_id HAVING prev_count >= 3
-    ) p ON r.model_id = p.model_id
-    JOIN models m ON m.model_id = r.model_id
-    JOIN makes mk ON mk.make_id = m.make_id
-    ORDER BY change_pct ${order}
-    LIMIT ?
-  `).bind(limit).all<TrendingModel>();
-  return results;
+  return cached(`trendingModels:${direction}:${limit}`, async () => {
+    const order = direction === 'rising' ? 'DESC' : 'ASC';
+    const { results } = await db.prepare(`
+      SELECT
+        r.model_id, mk.make_name, m.model_name, m.slug,
+        r.recent_count, p.prev_count,
+        ROUND((CAST(r.recent_count AS REAL) - p.prev_count) / MAX(p.prev_count, 1) * 100, 1) as change_pct,
+        m.complaint_count as total_complaints
+      FROM (
+        SELECT model_id, SUM(complaint_count) as recent_count
+        FROM complaint_trends WHERE cal_year BETWEEN 2022 AND 2026
+        GROUP BY model_id HAVING recent_count >= 5
+      ) r
+      JOIN (
+        SELECT model_id, SUM(complaint_count) as prev_count
+        FROM complaint_trends WHERE cal_year BETWEEN 2017 AND 2021
+        GROUP BY model_id HAVING prev_count >= 3
+      ) p ON r.model_id = p.model_id
+      JOIN models m ON m.model_id = r.model_id
+      JOIN makes mk ON mk.make_id = m.make_id
+      ORDER BY change_pct ${order}
+      LIMIT ?
+    `).bind(limit).all<TrendingModel>();
+    return results;
+  });
 }
 
 export const INVESTIGATION_TYPES: Record<string, string> = {
@@ -683,14 +691,19 @@ export const INVESTIGATION_TYPES: Record<string, string> = {
 
 export async function warmQueryCache(db: D1Database): Promise<number> {
   const start = Date.now();
+  const states = await getAllStates(db);
   await Promise.all([
     getAllMakes(db),
     getNationalStats(db),
     getMostComplainedModels(db),
     getMostDangerousModelYears(db),
     getMostRecalledModels(db),
-    getAllStates(db),
     getInvestigationStats(db),
+    getPopularModels(db),
+    getModelsForReliability(db),
+    getTrendingComplaintModels(db, 'rising'),
+    getTrendingComplaintModels(db, 'falling'),
+    ...states.map(s => getMostComplainedInState(db, s.code)),
   ]);
   console.log(`[cache] Warmed ${queryCache.size} queries in ${Date.now() - start}ms`);
   return queryCache.size;
