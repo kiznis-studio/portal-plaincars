@@ -1,0 +1,167 @@
+---
+export const prerender = false;
+import Base from '../../layouts/Base.astro';
+import Breadcrumb from '../../components/ui/Breadcrumb.astro';
+import AdSlot from '../../components/ads/AdSlot.astro';
+import { getNationalStats } from '../../lib/db';
+
+const db = Astro.locals.runtime.env.DB;
+const stats = await getNationalStats(db);
+
+const breadcrumbs = [
+  { name: 'Home', href: '/' },
+  { name: 'VIN Lookup' },
+];
+
+const breadcrumbSchema = JSON.stringify({
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: [
+    { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://plaincars.com/' },
+    { '@type': 'ListItem', position: 2, name: 'VIN Lookup' },
+  ],
+});
+---
+
+<Base
+  title="Free VIN Lookup — NHTSA Safety Complaints, Recalls & Decoder"
+  description="Look up any vehicle by VIN number. Get free NHTSA safety complaints, recall history, and vehicle specifications decoded from the VIN. No signup required."
+  breadcrumbs={breadcrumbs}
+>
+  <div class="max-w-4xl mx-auto px-4 py-8">
+    <Breadcrumb items={breadcrumbs} />
+
+    <h1 class="text-3xl font-bold text-[var(--color-text)] mb-2 mt-4">Free VIN Lookup</h1>
+    <p class="text-[var(--color-text-secondary)] mb-8 leading-relaxed">
+      Enter a 17-character Vehicle Identification Number (VIN) to get free NHTSA safety data including complaints, recalls, and decoded vehicle specifications. Our database contains <strong>{stats?.total_complaints?.toLocaleString() || '2M+'} complaints</strong> across <strong>{stats?.total_vins?.toLocaleString() || '376K'} unique VINs</strong>.
+    </p>
+
+    <!-- VIN Search Form -->
+    <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-6 md:p-8 mb-8">
+      <form id="vin-form" class="space-y-4">
+        <label for="vin-input" class="block text-sm font-medium text-[var(--color-text)]">
+          Enter VIN Number
+        </label>
+        <div class="flex gap-3">
+          <input
+            type="text"
+            id="vin-input"
+            name="vin"
+            maxlength="17"
+            placeholder="e.g. 1HGBH41JXMN109186"
+            class="flex-1 px-4 py-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-text)] text-lg tracking-wider uppercase focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button
+            type="submit"
+            class="px-6 py-3 bg-[var(--color-primary)] text-white font-medium rounded-lg hover:opacity-90 transition-opacity whitespace-nowrap"
+          >
+            Look Up
+          </button>
+        </div>
+        <p id="vin-error" class="text-amber-600 dark:text-amber-400 text-sm hidden"></p>
+        <p class="text-xs text-[var(--color-text-secondary)]">
+          Find your VIN on the driver's side dashboard (visible through the windshield), inside the driver's door jamb, or on your vehicle registration/insurance card.
+        </p>
+      </form>
+    </div>
+
+    <AdSlot slot="top" />
+
+    <!-- What You Get -->
+    <div class="grid md:grid-cols-3 gap-4 mb-8">
+      <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-5">
+        <h3 class="font-semibold text-[var(--color-text)] mb-2">Safety Complaints</h3>
+        <p class="text-sm text-[var(--color-text-secondary)]">
+          See all NHTSA complaints filed for your specific vehicle, including crash reports, fires, injuries, and detailed owner descriptions.
+        </p>
+      </div>
+      <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-5">
+        <h3 class="font-semibold text-[var(--color-text)] mb-2">Recall History</h3>
+        <p class="text-sm text-[var(--color-text-secondary)]">
+          Check if your vehicle has any active or past recalls, with details on the affected components, consequences, and remedies.
+        </p>
+      </div>
+      <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-5">
+        <h3 class="font-semibold text-[var(--color-text)] mb-2">Vehicle Specs</h3>
+        <p class="text-sm text-[var(--color-text-secondary)]">
+          Decode your VIN to get make, model, year, engine type, body style, plant of manufacture, and other vehicle specifications.
+        </p>
+      </div>
+    </div>
+
+    <AdSlot slot="mid" />
+
+    <!-- How It Works -->
+    <div class="mb-8">
+      <h2 class="text-xl font-semibold text-[var(--color-text)] mb-4">How It Works</h2>
+      <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-6">
+        <ol class="space-y-3 text-[var(--color-text)]">
+          <li class="flex gap-3">
+            <span class="flex-shrink-0 w-7 h-7 rounded-full bg-[var(--color-primary)] text-white text-sm flex items-center justify-center font-medium">1</span>
+            <span>Enter your 17-character VIN above</span>
+          </li>
+          <li class="flex gap-3">
+            <span class="flex-shrink-0 w-7 h-7 rounded-full bg-[var(--color-primary)] text-white text-sm flex items-center justify-center font-medium">2</span>
+            <span>We decode it using the NHTSA VIN Decoder API and match it against our complaints database</span>
+          </li>
+          <li class="flex gap-3">
+            <span class="flex-shrink-0 w-7 h-7 rounded-full bg-[var(--color-primary)] text-white text-sm flex items-center justify-center font-medium">3</span>
+            <span>View decoded vehicle info, safety complaints, recalls, and compare against similar vehicles</span>
+          </li>
+        </ol>
+      </div>
+    </div>
+
+    <!-- FAQ -->
+    <div class="mb-8">
+      <h2 class="text-xl font-semibold text-[var(--color-text)] mb-4">Frequently Asked Questions</h2>
+      <div class="space-y-3">
+        <details class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg">
+          <summary class="px-5 py-4 cursor-pointer text-[var(--color-text)] font-medium">Where can I find my VIN?</summary>
+          <div class="px-5 pb-4 text-sm text-[var(--color-text-secondary)]">
+            Your VIN is located on the driver's side dashboard (visible through the windshield), inside the driver's door jamb, on your vehicle registration, or your insurance card. It's a 17-character combination of letters and numbers.
+          </div>
+        </details>
+        <details class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg">
+          <summary class="px-5 py-4 cursor-pointer text-[var(--color-text)] font-medium">Is this VIN lookup really free?</summary>
+          <div class="px-5 pb-4 text-sm text-[var(--color-text-secondary)]">
+            Yes, completely free. We use the official NHTSA (National Highway Traffic Safety Administration) VIN Decoder API and our database of {stats?.total_complaints?.toLocaleString() || '2M+'} safety complaints. No signup, no hidden fees.
+          </div>
+        </details>
+        <details class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg">
+          <summary class="px-5 py-4 cursor-pointer text-[var(--color-text)] font-medium">How is this different from Carfax?</summary>
+          <div class="px-5 pb-4 text-sm text-[var(--color-text-secondary)]">
+            Carfax charges $39.99+ per report and focuses on ownership history (title, accidents, service). PlainCars focuses on government safety data — NHTSA complaints, recalls, investigations, and safety ratings — which is public information and always free.
+          </div>
+        </details>
+      </div>
+    </div>
+
+    <AdSlot slot="bottom" />
+
+    <div class="mt-8 text-sm text-[var(--color-text-secondary)]">
+      <p>VIN decoding powered by the <a href="https://vpic.nhtsa.dot.gov/api/" class="text-[var(--color-primary)] hover:underline" target="_blank" rel="noopener">NHTSA vPIC API</a>. Complaint data from the <a href="https://www.nhtsa.gov/recalls-complaints/complaints" class="text-[var(--color-primary)] hover:underline" target="_blank" rel="noopener">NHTSA Complaints Database</a>.</p>
+    </div>
+  </div>
+  <script type="application/ld+json" set:html={breadcrumbSchema} />
+  <script>
+    const form = document.getElementById('vin-form');
+    const input = document.getElementById('vin-input') as HTMLInputElement;
+    const error = document.getElementById('vin-error');
+    form?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const vin = input.value.trim().toUpperCase();
+      if (vin.length !== 17) {
+        if (error) { error.textContent = 'VIN must be exactly 17 characters.'; error.classList.remove('hidden'); }
+        return;
+      }
+      if (/[IOQ]/i.test(vin)) {
+        if (error) { error.textContent = 'VINs do not contain the letters I, O, or Q.'; error.classList.remove('hidden'); }
+        return;
+      }
+      window.location.href = `/vin/${vin}`;
+    });
+  </script>
+</Base>

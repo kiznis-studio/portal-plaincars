@@ -62,6 +62,7 @@ export interface Complaint {
   cmplid: number;
   my_id: string;
   odi_number: number;
+  vin: string | null;
   crash: string;
   fire: string;
   injured: number;
@@ -72,6 +73,37 @@ export interface Complaint {
   date_added: string;
   mileage: number | null;
   state: string;
+}
+
+export interface ComplaintWithNames extends Complaint {
+  make_name?: string;
+  model_name?: string;
+  year?: number;
+}
+
+export interface ComponentSummary {
+  component_slug: string;
+  component: string;
+  complaint_count: number;
+  crash_count: number;
+  fire_count: number;
+  injury_count: number;
+  death_count: number;
+  affected_makes: number;
+  affected_models: number;
+  top_models: string | null;
+}
+
+export interface YearSummary {
+  year: number;
+  complaint_count: number;
+  crash_count: number;
+  fire_count: number;
+  injury_count: number;
+  death_count: number;
+  make_count: number;
+  model_count: number;
+  top_components: string | null;
 }
 
 export interface Recall {
@@ -681,6 +713,154 @@ export async function getTrendingComplaintModels(db: D1Database, direction: 'ris
   });
 }
 
+// --- Individual Complaint ---
+
+export async function getComplaintById(db: D1Database, cmplid: number): Promise<ComplaintWithNames | null> {
+  return db.prepare(`
+    SELECT c.*, mk.make_name, mo.model_name, my.year
+    FROM complaints c
+    JOIN model_years my ON c.my_id = my.my_id
+    JOIN models mo ON my.model_id = mo.model_id
+    JOIN makes mk ON my.make_id = mk.make_id
+    WHERE c.cmplid = ?
+  `).bind(cmplid).first<ComplaintWithNames>();
+}
+
+export async function getRelatedComplaints(db: D1Database, myId: string, component: string, excludeCmplid: number, limit = 10): Promise<Complaint[]> {
+  const { results } = await db.prepare(`
+    SELECT * FROM complaints
+    WHERE my_id = ? AND component = ? AND cmplid != ?
+    ORDER BY date_added DESC LIMIT ?
+  `).bind(myId, component, excludeCmplid, limit).all<Complaint>();
+  return results;
+}
+
+// --- VIN Lookup ---
+
+export async function getComplaintsByVin(db: D1Database, vin: string): Promise<ComplaintWithNames[]> {
+  const { results } = await db.prepare(`
+    SELECT c.*, mk.make_name, mo.model_name, my.year
+    FROM complaints c
+    JOIN model_years my ON c.my_id = my.my_id
+    JOIN models mo ON my.model_id = mo.model_id
+    JOIN makes mk ON my.make_id = mk.make_id
+    WHERE c.vin = ?
+    ORDER BY c.date_added DESC
+  `).bind(vin.toUpperCase()).all<ComplaintWithNames>();
+  return results;
+}
+
+// --- Component Pages ---
+
+export async function getAllComponents(db: D1Database): Promise<ComponentSummary[]> {
+  return cached('getAllComponents', async () => {
+    const { results } = await db.prepare(
+      'SELECT * FROM component_summary ORDER BY complaint_count DESC'
+    ).all<ComponentSummary>();
+    return results;
+  });
+}
+
+export async function getComponentBySlug(db: D1Database, slug: string): Promise<ComponentSummary | null> {
+  return db.prepare(
+    'SELECT * FROM component_summary WHERE component_slug = ?'
+  ).bind(slug).first<ComponentSummary>();
+}
+
+export async function getComponentTopModels(db: D1Database, component: string, limit = 30) {
+  const { results } = await db.prepare(`
+    SELECT mk.make_name, mo.model_name, mo.slug,
+           COUNT(*) as complaint_count,
+           SUM(CASE WHEN c.crash = 'Y' THEN 1 ELSE 0 END) as crash_count,
+           SUM(CASE WHEN c.fire = 'Y' THEN 1 ELSE 0 END) as fire_count,
+           SUM(c.injured) as injury_count,
+           SUM(c.deaths) as death_count
+    FROM complaints c
+    JOIN model_years my ON c.my_id = my.my_id
+    JOIN models mo ON my.model_id = mo.model_id
+    JOIN makes mk ON my.make_id = mk.make_id
+    WHERE c.component = ?
+    GROUP BY mo.model_id
+    ORDER BY complaint_count DESC
+    LIMIT ?
+  `).bind(component, limit).all();
+  return results;
+}
+
+export async function getComponentRecentComplaints(db: D1Database, component: string, limit = 20): Promise<ComplaintWithNames[]> {
+  const { results } = await db.prepare(`
+    SELECT c.*, mk.make_name, mo.model_name, my.year
+    FROM complaints c
+    JOIN model_years my ON c.my_id = my.my_id
+    JOIN models mo ON my.model_id = mo.model_id
+    JOIN makes mk ON my.make_id = mk.make_id
+    WHERE c.component = ?
+    ORDER BY c.date_added DESC
+    LIMIT ?
+  `).bind(component, limit).all<ComplaintWithNames>();
+  return results;
+}
+
+// --- Year Pages ---
+
+export async function getAllYearSummaries(db: D1Database): Promise<YearSummary[]> {
+  return cached('getAllYearSummaries', async () => {
+    const { results } = await db.prepare(
+      'SELECT * FROM year_summary ORDER BY year DESC'
+    ).all<YearSummary>();
+    return results;
+  });
+}
+
+export async function getYearSummary(db: D1Database, year: number): Promise<YearSummary | null> {
+  return db.prepare(
+    'SELECT * FROM year_summary WHERE year = ?'
+  ).bind(year).first<YearSummary>();
+}
+
+export async function getYearTopModels(db: D1Database, year: number, limit = 30) {
+  const { results } = await db.prepare(`
+    SELECT my.*, mk.make_name, mo.model_name, mo.slug
+    FROM model_years my
+    JOIN makes mk ON my.make_id = mk.make_id
+    JOIN models mo ON my.model_id = mo.model_id
+    WHERE my.year = ?
+    ORDER BY my.complaint_count DESC
+    LIMIT ?
+  `).bind(year, limit).all();
+  return results;
+}
+
+export async function getYearTopComponents(db: D1Database, year: number, limit = 20) {
+  const { results } = await db.prepare(`
+    SELECT c.component, COUNT(*) as complaint_count,
+           SUM(CASE WHEN c.crash = 'Y' THEN 1 ELSE 0 END) as crash_count,
+           SUM(CASE WHEN c.fire = 'Y' THEN 1 ELSE 0 END) as fire_count
+    FROM complaints c
+    JOIN model_years my ON c.my_id = my.my_id
+    WHERE my.year = ?
+    GROUP BY c.component
+    ORDER BY complaint_count DESC
+    LIMIT ?
+  `).bind(year, limit).all();
+  return results;
+}
+
+// --- Recent / Browse ---
+
+export async function getRecentComplaints(db: D1Database, limit = 50): Promise<ComplaintWithNames[]> {
+  const { results } = await db.prepare(`
+    SELECT c.*, mk.make_name, mo.model_name, my.year
+    FROM complaints c
+    JOIN model_years my ON c.my_id = my.my_id
+    JOIN models mo ON my.model_id = mo.model_id
+    JOIN makes mk ON my.make_id = mk.make_id
+    ORDER BY c.date_added DESC
+    LIMIT ?
+  `).bind(limit).all<ComplaintWithNames>();
+  return results;
+}
+
 export const INVESTIGATION_TYPES: Record<string, string> = {
   PE: 'Preliminary Evaluation',
   EA: 'Engineering Analysis',
@@ -703,6 +883,8 @@ export async function warmQueryCache(db: D1Database): Promise<number> {
     getModelsForReliability(db),
     getTrendingComplaintModels(db, 'rising'),
     getTrendingComplaintModels(db, 'falling'),
+    getAllComponents(db),
+    getAllYearSummaries(db),
     ...states.map(s => getMostComplainedInState(db, s.code)),
   ]);
   console.log(`[cache] Warmed ${queryCache.size} queries in ${Date.now() - start}ms`);

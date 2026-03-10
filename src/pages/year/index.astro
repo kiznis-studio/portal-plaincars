@@ -1,0 +1,79 @@
+---
+export const prerender = false;
+import Base from '../../layouts/Base.astro';
+import Breadcrumb from '../../components/ui/Breadcrumb.astro';
+import AdSlot from '../../components/ads/AdSlot.astro';
+import { getAllYearSummaries } from '../../lib/db';
+
+const db = Astro.locals.runtime.env.DB;
+const years = await getAllYearSummaries(db);
+
+const breadcrumbs = [
+  { name: 'Home', href: '/' },
+  { name: 'Model Years' },
+];
+
+const breadcrumbSchema = JSON.stringify({
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: [
+    { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://plaincars.com/' },
+    { '@type': 'ListItem', position: 2, name: 'Model Years' },
+  ],
+});
+---
+
+<Base
+  title="Vehicle Safety Data by Model Year — NHTSA Complaints 1970-2026"
+  description={`Browse NHTSA vehicle safety complaints by model year from 1970 to 2026. See which model years have the most complaints, crashes, and recalls.`}
+  breadcrumbs={breadcrumbs}
+>
+  <div class="max-w-6xl mx-auto px-4 py-8">
+    <Breadcrumb items={breadcrumbs} />
+
+    <h1 class="text-3xl font-bold text-[var(--color-text)] mb-2 mt-4">Vehicle Safety by Model Year</h1>
+    <p class="text-[var(--color-text-secondary)] mb-8 leading-relaxed">
+      NHTSA vehicle safety complaints organized by model year, from 1970 to present. Click any year to see the most complained-about vehicles and components.
+    </p>
+
+    <AdSlot slot="top" />
+
+    <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg overflow-hidden mb-8">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-[var(--color-border)] bg-[var(--color-bg)]">
+              <th class="px-4 py-3 text-left text-[var(--color-text-secondary)] font-medium">Year</th>
+              <th class="px-4 py-3 text-right text-[var(--color-text-secondary)] font-medium">Complaints</th>
+              <th class="px-4 py-3 text-right text-[var(--color-text-secondary)] font-medium hidden md:table-cell">Models</th>
+              <th class="px-4 py-3 text-right text-[var(--color-text-secondary)] font-medium">Crashes</th>
+              <th class="px-4 py-3 text-right text-[var(--color-text-secondary)] font-medium hidden md:table-cell">Fires</th>
+              <th class="px-4 py-3 text-right text-[var(--color-text-secondary)] font-medium">Deaths</th>
+            </tr>
+          </thead>
+          <tbody>
+            {years.map(y => (
+              <tr class="border-b border-[var(--color-border)] hover:bg-[var(--color-bg)]">
+                <td class="px-4 py-2.5">
+                  <a href={`/year/${y.year}`} class="text-[var(--color-primary)] hover:underline font-medium">{y.year}</a>
+                </td>
+                <td class="px-4 py-2.5 text-right text-[var(--color-text)]">{y.complaint_count.toLocaleString()}</td>
+                <td class="px-4 py-2.5 text-right text-[var(--color-text-secondary)] hidden md:table-cell">{y.model_count}</td>
+                <td class="px-4 py-2.5 text-right text-[var(--color-text)]">{y.crash_count.toLocaleString()}</td>
+                <td class="px-4 py-2.5 text-right text-[var(--color-text-secondary)] hidden md:table-cell">{y.fire_count.toLocaleString()}</td>
+                <td class="px-4 py-2.5 text-right text-amber-600 dark:text-amber-400">{y.death_count.toLocaleString()}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <AdSlot slot="bottom" />
+
+    <div class="mt-8 text-sm text-[var(--color-text-secondary)]">
+      <p>Source: <a href="https://www.nhtsa.gov/recalls-complaints/complaints" class="text-[var(--color-primary)] hover:underline" target="_blank" rel="noopener">NHTSA Vehicle Complaints Database</a></p>
+    </div>
+  </div>
+  <script type="application/ld+json" set:html={breadcrumbSchema} />
+</Base>

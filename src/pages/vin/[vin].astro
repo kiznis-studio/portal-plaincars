@@ -1,0 +1,284 @@
+---
+export const prerender = false;
+import Base from '../../layouts/Base.astro';
+import Breadcrumb from '../../components/ui/Breadcrumb.astro';
+import AdSlot from '../../components/ads/AdSlot.astro';
+import { getComplaintsByVin } from '../../lib/db';
+
+const db = Astro.locals.runtime.env.DB;
+const { vin } = Astro.params;
+const vinUpper = (vin || '').toUpperCase();
+
+if (vinUpper.length !== 17) return Astro.redirect('/vin');
+
+// Fetch NHTSA VIN decode in parallel with DB complaints
+interface VinResult { Variable: string; Value: string | null; ValueId: string | null; }
+interface VinResponse { Results: VinResult[]; }
+
+let decoded: VinResult[] = [];
+let decodeError = false;
+
+const [complaints, vinData] = await Promise.all([
+  getComplaintsByVin(db, vinUpper),
+  fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVin/${vinUpper}?format=json`)
+    .then(r => r.json() as Promise<VinResponse>)
+    .then(d => d.Results || [])
+    .catch(() => { decodeError = true; return [] as VinResult[]; }),
+]);
+decoded = vinData;
+
+// Extract key specs from decoded VIN
+function getVal(name: string): string {
+  const r = decoded.find(d => d.Variable === name);
+  return r?.Value && r.Value !== 'Not Applicable' ? r.Value : '';
+}
+
+const make = getVal('Make');
+const model = getVal('Model');
+const year = getVal('Model Year');
+const bodyClass = getVal('Body Class');
+const driveType = getVal('Drive Type');
+const engineCylinders = getVal('Engine Number of Cylinders');
+const displacement = getVal('Displacement (L)');
+const fuelType = getVal('Fuel Type - Primary');
+const plantCity = getVal('Plant City');
+const plantState = getVal('Plant State');
+const plantCountry = getVal('Plant Country');
+const vehicleType = getVal('Vehicle Type');
+const gvwr = getVal('Gross Vehicle Weight Rating From');
+const errorCode = getVal('Error Code');
+const errorText = getVal('Error Text');
+
+const vehicleName = [year, make, model].filter(Boolean).join(' ') || vinUpper;
+const hasValidDecode = make && model && year && errorCode !== '6';
+const hasComplaints = complaints.length > 0;
+
+const totalCrashes = complaints.filter(c => c.crash === 'Y').length;
+const totalFires = complaints.filter(c => c.fire === 'Y').length;
+const totalInjuries = complaints.reduce((sum, c) => sum + c.injured, 0);
+const totalDeaths = complaints.reduce((sum, c) => sum + c.deaths, 0);
+
+// Collect unique components
+const componentCounts: Record<string, number> = {};
+complaints.forEach(c => {
+  if (c.component) componentCounts[c.component] = (componentCounts[c.component] || 0) + 1;
+});
+const topComponents = Object.entries(componentCounts).sort((a, b) => b[1] - a[1]).slice(0, 10);
+
+const breadcrumbs = [
+  { name: 'Home', href: '/' },
+  { name: 'VIN Lookup', href: '/vin' },
+  { name: vinUpper },
+];
+
+const breadcrumbSchema = JSON.stringify({
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: [
+    { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://plaincars.com/' },
+    { '@type': 'ListItem', position: 2, name: 'VIN Lookup', item: 'https://plaincars.com/vin' },
+    { '@type': 'ListItem', position: 3, name: vinUpper },
+  ],
+});
+
+// Build specs table data
+const specs = [
+  { label: 'VIN', value: vinUpper },
+  { label: 'Make', value: make },
+  { label: 'Model', value: model },
+  { label: 'Year', value: year },
+  { label: 'Body Style', value: bodyClass },
+  { label: 'Vehicle Type', value: vehicleType },
+  { label: 'Drive Type', value: driveType },
+  { label: 'Engine', value: [engineCylinders ? `${engineCylinders}-cylinder` : '', displacement ? `${displacement}L` : '', fuelType].filter(Boolean).join(', ') },
+  { label: 'Plant', value: [plantCity, plantState, plantCountry].filter(Boolean).join(', ') },
+  { label: 'GVWR', value: gvwr ? `${gvwr} lbs` : '' },
+].filter(s => s.value);
+---
+
+<Base
+  title={`${vehicleName} VIN ${vinUpper} — Safety Complaints & Recalls`}
+  description={`Free VIN lookup for ${vinUpper}${hasValidDecode ? ` (${vehicleName})` : ''}. ${hasComplaints ? `${complaints.length} NHTSA safety complaints found.` : 'No safety complaints found.'} Decoded vehicle specs and recall history.`}
+  breadcrumbs={breadcrumbs}
+>
+  <div class="max-w-5xl mx-auto px-4 py-8">
+    <Breadcrumb items={breadcrumbs} />
+
+    <h1 class="text-2xl md:text-3xl font-bold text-[var(--color-text)] mb-2 mt-4">
+      {hasValidDecode ? `${vehicleName} — VIN Report` : `VIN Report: ${vinUpper}`}
+    </h1>
+    <p class="text-[var(--color-text-secondary)] mb-6">
+      {hasValidDecode
+        ? `Free safety report for ${vehicleName} with VIN ${vinUpper}.`
+        : `VIN lookup results for ${vinUpper}.`}
+      {hasComplaints
+        ? ` ${complaints.length} NHTSA complaint${complaints.length > 1 ? 's' : ''} found.`
+        : ' No NHTSA complaints found for this specific VIN.'}
+    </p>
+
+    <!-- Safety Summary -->
+    {hasComplaints && (
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
+        <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-4 text-center">
+          <div class="text-2xl font-bold text-[var(--color-text)]">{complaints.length}</div>
+          <div class="text-xs text-[var(--color-text-secondary)] uppercase tracking-wider mt-1">Complaints</div>
+        </div>
+        <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-4 text-center">
+          <div class="text-2xl font-bold text-amber-600 dark:text-amber-400">{totalCrashes}</div>
+          <div class="text-xs text-[var(--color-text-secondary)] uppercase tracking-wider mt-1">Crashes</div>
+        </div>
+        <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-4 text-center">
+          <div class="text-2xl font-bold text-amber-600 dark:text-amber-400">{totalFires}</div>
+          <div class="text-xs text-[var(--color-text-secondary)] uppercase tracking-wider mt-1">Fires</div>
+        </div>
+        <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-4 text-center">
+          <div class="text-2xl font-bold text-amber-600 dark:text-amber-400">{totalInjuries}</div>
+          <div class="text-xs text-[var(--color-text-secondary)] uppercase tracking-wider mt-1">Injuries</div>
+        </div>
+        <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-4 text-center">
+          <div class="text-2xl font-bold text-amber-600 dark:text-amber-400">{totalDeaths}</div>
+          <div class="text-xs text-[var(--color-text-secondary)] uppercase tracking-wider mt-1">Deaths</div>
+        </div>
+      </div>
+    )}
+
+    <!-- Decoded Vehicle Specs -->
+    {specs.length > 1 && (
+      <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg overflow-hidden mb-8">
+        <h2 class="text-lg font-semibold text-[var(--color-text)] px-6 py-4 border-b border-[var(--color-border)]">
+          Decoded Vehicle Information
+        </h2>
+        <table class="w-full text-sm">
+          <tbody>
+            {specs.map((s, i) => (
+              <tr class={i < specs.length - 1 ? 'border-b border-[var(--color-border)]' : ''}>
+                <td class="px-6 py-3 text-[var(--color-text-secondary)] font-medium w-1/3">{s.label}</td>
+                <td class="px-6 py-3 text-[var(--color-text)] font-mono">{s.value}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
+
+    {decodeError && !hasValidDecode && (
+      <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 mb-8">
+        <p class="text-sm text-amber-700 dark:text-amber-400">
+          Unable to decode this VIN. The NHTSA VIN Decoder API may be temporarily unavailable, or this VIN may not be in the database.
+        </p>
+      </div>
+    )}
+
+    {errorCode === '6' && (
+      <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 mb-8">
+        <p class="text-sm text-amber-700 dark:text-amber-400">
+          {errorText || 'This VIN was not found in the NHTSA database. It may be incorrect or for a vehicle not covered by NHTSA.'}
+        </p>
+      </div>
+    )}
+
+    <AdSlot slot="top" />
+
+    <!-- Component Breakdown -->
+    {topComponents.length > 0 && (
+      <div class="mb-8">
+        <h2 class="text-xl font-semibold text-[var(--color-text)] mb-4">Complaints by Component</h2>
+        <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg overflow-hidden">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-[var(--color-border)] bg-[var(--color-bg)]">
+                <th class="px-4 py-3 text-left text-[var(--color-text-secondary)] font-medium">Component</th>
+                <th class="px-4 py-3 text-right text-[var(--color-text-secondary)] font-medium">Complaints</th>
+              </tr>
+            </thead>
+            <tbody>
+              {topComponents.map(([comp, count], i) => (
+                <tr class={i < topComponents.length - 1 ? 'border-b border-[var(--color-border)]' : ''}>
+                  <td class="px-4 py-3 text-[var(--color-text)]">{comp}</td>
+                  <td class="px-4 py-3 text-right text-[var(--color-text)] font-medium">{count}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    )}
+
+    <!-- Individual Complaints -->
+    {hasComplaints && (
+      <div class="mb-8">
+        <h2 class="text-xl font-semibold text-[var(--color-text)] mb-4">
+          All Complaints ({complaints.length})
+        </h2>
+        <div class="space-y-3">
+          {complaints.map(c => (
+            <a href={`/complaint/${c.cmplid}`} class="block bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-4 hover:border-[var(--color-primary)] transition-colors">
+              <div class="flex flex-wrap gap-2 items-center mb-2">
+                <span class="text-sm font-medium text-[var(--color-text)]">
+                  {c.year} {c.make_name} {c.model_name}
+                </span>
+                <span class="text-xs text-[var(--color-text-secondary)]">{c.component}</span>
+                {c.crash === 'Y' && <span class="text-xs px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">Crash</span>}
+                {c.fire === 'Y' && <span class="text-xs px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">Fire</span>}
+                {c.deaths > 0 && <span class="text-xs px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">Fatal</span>}
+              </div>
+              <p class="text-sm text-[var(--color-text-secondary)] line-clamp-3">{c.summary}</p>
+              <div class="mt-2 text-xs text-[var(--color-text-secondary)]">
+                Filed: {c.date_added ? new Date(c.date_added.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3')).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'Unknown'}
+                {c.mileage ? ` · ${c.mileage.toLocaleString()} miles` : ''}
+              </div>
+            </a>
+          ))}
+        </div>
+      </div>
+    )}
+
+    {!hasComplaints && (
+      <div class="bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800 rounded-lg p-6 mb-8 text-center">
+        <h2 class="text-lg font-semibold text-teal-700 dark:text-teal-400 mb-2">No Complaints Found</h2>
+        <p class="text-sm text-teal-600 dark:text-teal-400">
+          No NHTSA safety complaints have been filed for this specific VIN. This is a good sign, but it doesn't guarantee the vehicle is problem-free.
+          {hasValidDecode && ` Check the <a href="/make/${make?.toLowerCase()}" class="underline">full ${make} ${model} complaint history</a> for known issues with this model.`}
+        </p>
+      </div>
+    )}
+
+    <AdSlot slot="mid" />
+
+    <!-- Try Another VIN -->
+    <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-6 mb-8">
+      <h2 class="text-lg font-semibold text-[var(--color-text)] mb-3">Look Up Another VIN</h2>
+      <form id="vin-form" class="flex gap-3">
+        <input
+          type="text"
+          id="vin-input"
+          name="vin"
+          maxlength="17"
+          placeholder="Enter 17-character VIN"
+          class="flex-1 px-4 py-2.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-text)] tracking-wider uppercase focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <button type="submit" class="px-5 py-2.5 bg-[var(--color-primary)] text-white font-medium rounded-lg hover:opacity-90 transition-opacity">
+          Look Up
+        </button>
+      </form>
+    </div>
+
+    <AdSlot slot="bottom" />
+
+    <div class="mt-8 text-sm text-[var(--color-text-secondary)]">
+      <p>VIN decoding: <a href="https://vpic.nhtsa.dot.gov/api/" class="text-[var(--color-primary)] hover:underline" target="_blank" rel="noopener">NHTSA vPIC API</a>. Complaints: <a href="https://www.nhtsa.gov/recalls-complaints/complaints" class="text-[var(--color-primary)] hover:underline" target="_blank" rel="noopener">NHTSA Complaints Database</a>.</p>
+    </div>
+  </div>
+  <script type="application/ld+json" set:html={breadcrumbSchema} />
+  <script>
+    const form = document.getElementById('vin-form');
+    const input = document.getElementById('vin-input') as HTMLInputElement;
+    form?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const vin = input.value.trim().toUpperCase();
+      if (vin.length === 17) window.location.href = `/vin/${vin}`;
+    });
+  </script>
+</Base>

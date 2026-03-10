@@ -17,15 +17,14 @@ const isActive = (path: string) => currentPath === path || currentPath.startsWit
       </a>
 
       <nav class="hidden md:flex items-center gap-6 text-sm font-medium">
+        <a href="/vin" class:list={['hover:text-[var(--color-primary)] transition-colors', isActive('/vin') ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-secondary)]']}>VIN Lookup</a>
         <a href="/make" class:list={['hover:text-[var(--color-primary)] transition-colors', isActive('/make') ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-secondary)]']}>Makes</a>
-        <a href="/compare" class:list={['hover:text-[var(--color-primary)] transition-colors', isActive('/compare') ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-secondary)]']}>Compare</a>
         <a href="/rankings" class:list={['hover:text-[var(--color-primary)] transition-colors', isActive('/rankings') ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-secondary)]']}>Rankings</a>
-        <a href="/reliability" class:list={['hover:text-[var(--color-primary)] transition-colors', isActive('/reliability') ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-secondary)]']}>Reliability</a>
         <a href="/recall" class:list={['hover:text-[var(--color-primary)] transition-colors', isActive('/recall') ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-secondary)]']}>Recalls</a>
-        <a href="/investigations" class:list={['hover:text-[var(--color-primary)] transition-colors', isActive('/investigations') ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-secondary)]']}>Investigations</a>
+        <a href="/component" class:list={['hover:text-[var(--color-primary)] transition-colors', isActive('/component') ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-secondary)]']}>Components</a>
+        <a href="/year" class:list={['hover:text-[var(--color-primary)] transition-colors', isActive('/year') ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-secondary)]']}>Years</a>
         <a href="/states" class:list={['hover:text-[var(--color-primary)] transition-colors', isActive('/states') ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-secondary)]']}>States</a>
         <a href="/guides" class:list={['hover:text-[var(--color-primary)] transition-colors', isActive('/guides') ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-secondary)]']}>Guides</a>
-        <a href="/about" class:list={['hover:text-[var(--color-primary)] transition-colors', isActive('/about') ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-secondary)]']}>About</a>
       </nav>
 
       <div class="flex items-center gap-2">
@@ -49,15 +48,17 @@ const isActive = (path: string) => currentPath === path || currentPath.startsWit
 
     <nav id="mobile-menu" class="hidden md:hidden pb-4 border-t border-[var(--color-border)]">
       <div class="flex flex-col gap-2 pt-3 text-sm font-medium">
+        <a href="/vin" class:list={['px-3 py-2 rounded-lg transition-colors', isActive('/vin') ? 'text-[var(--color-primary)] bg-[var(--color-surface)]' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-surface)]']}>VIN Lookup</a>
         <a href="/make" class:list={['px-3 py-2 rounded-lg transition-colors', isActive('/make') ? 'text-[var(--color-primary)] bg-[var(--color-surface)]' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-surface)]']}>Makes</a>
-        <a href="/compare" class:list={['px-3 py-2 rounded-lg transition-colors', isActive('/compare') ? 'text-[var(--color-primary)] bg-[var(--color-surface)]' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-surface)]']}>Compare</a>
         <a href="/rankings" class:list={['px-3 py-2 rounded-lg transition-colors', isActive('/rankings') ? 'text-[var(--color-primary)] bg-[var(--color-surface)]' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-surface)]']}>Rankings</a>
-        <a href="/reliability" class:list={['px-3 py-2 rounded-lg transition-colors', isActive('/reliability') ? 'text-[var(--color-primary)] bg-[var(--color-surface)]' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-surface)]']}>Reliability</a>
         <a href="/recall" class:list={['px-3 py-2 rounded-lg transition-colors', isActive('/recall') ? 'text-[var(--color-primary)] bg-[var(--color-surface)]' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-surface)]']}>Recalls</a>
+        <a href="/component" class:list={['px-3 py-2 rounded-lg transition-colors', isActive('/component') ? 'text-[var(--color-primary)] bg-[var(--color-surface)]' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-surface)]']}>Components</a>
+        <a href="/year" class:list={['px-3 py-2 rounded-lg transition-colors', isActive('/year') ? 'text-[var(--color-primary)] bg-[var(--color-surface)]' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-surface)]']}>Years</a>
+        <a href="/compare" class:list={['px-3 py-2 rounded-lg transition-colors', isActive('/compare') ? 'text-[var(--color-primary)] bg-[var(--color-surface)]' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-surface)]']}>Compare</a>
+        <a href="/reliability" class:list={['px-3 py-2 rounded-lg transition-colors', isActive('/reliability') ? 'text-[var(--color-primary)] bg-[var(--color-surface)]' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-surface)]']}>Reliability</a>
         <a href="/investigations" class:list={['px-3 py-2 rounded-lg transition-colors', isActive('/investigations') ? 'text-[var(--color-primary)] bg-[var(--color-surface)]' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-surface)]']}>Investigations</a>
         <a href="/states" class:list={['px-3 py-2 rounded-lg transition-colors', isActive('/states') ? 'text-[var(--color-primary)] bg-[var(--color-surface)]' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-surface)]']}>States</a>
         <a href="/guides" class:list={['px-3 py-2 rounded-lg transition-colors', isActive('/guides') ? 'text-[var(--color-primary)] bg-[var(--color-surface)]' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-surface)]']}>Guides</a>
-        <a href="/about" class:list={['px-3 py-2 rounded-lg transition-colors', isActive('/about') ? 'text-[var(--color-primary)] bg-[var(--color-surface)]' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-surface)]']}>About</a>
       </div>
       <form action="/search" method="get" class="mt-3 sm:hidden">
         <div class="relative">

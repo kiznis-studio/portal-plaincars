@@ -1,0 +1,140 @@
+---
+export const prerender = false;
+import Base from '../../layouts/Base.astro';
+import Breadcrumb from '../../components/ui/Breadcrumb.astro';
+import AdSlot from '../../components/ads/AdSlot.astro';
+import { getComponentBySlug, getComponentTopModels, getComponentRecentComplaints } from '../../lib/db';
+
+const db = Astro.locals.runtime.env.DB;
+const { slug } = Astro.params;
+if (!slug) return Astro.redirect('/404');
+
+const component = await getComponentBySlug(db, slug);
+if (!component) return Astro.redirect('/404');
+
+const [topModels, recentComplaints] = await Promise.all([
+  getComponentTopModels(db, component.component, 30),
+  getComponentRecentComplaints(db, component.component, 20),
+]);
+
+const breadcrumbs = [
+  { name: 'Home', href: '/' },
+  { name: 'Components', href: '/component' },
+  { name: component.component },
+];
+
+const breadcrumbSchema = JSON.stringify({
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: [
+    { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://plaincars.com/' },
+    { '@type': 'ListItem', position: 2, name: 'Components', item: 'https://plaincars.com/component' },
+    { '@type': 'ListItem', position: 3, name: component.component },
+  ],
+});
+---
+
+<Base
+  title={`${component.component} — NHTSA Safety Complaints`}
+  description={`${component.complaint_count.toLocaleString()} NHTSA complaints about ${component.component} across ${component.affected_models} vehicle models. See which vehicles have the most ${component.component.toLowerCase()} problems.`}
+  breadcrumbs={breadcrumbs}
+>
+  <div class="max-w-6xl mx-auto px-4 py-8">
+    <Breadcrumb items={breadcrumbs} />
+
+    <h1 class="text-2xl md:text-3xl font-bold text-[var(--color-text)] mb-2 mt-4">
+      {component.component}
+    </h1>
+    <p class="text-[var(--color-text-secondary)] mb-6 leading-relaxed">
+      <strong>{component.complaint_count.toLocaleString()} NHTSA complaints</strong> about {component.component.toLowerCase()} issues across <strong>{component.affected_makes} makes</strong> and <strong>{component.affected_models} models</strong>.
+    </p>
+
+    <!-- Stats -->
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
+      <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-4 text-center">
+        <div class="text-2xl font-bold text-[var(--color-text)]">{component.complaint_count.toLocaleString()}</div>
+        <div class="text-xs text-[var(--color-text-secondary)] uppercase tracking-wider mt-1">Complaints</div>
+      </div>
+      <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-4 text-center">
+        <div class="text-2xl font-bold text-[var(--color-text)]">{component.affected_models}</div>
+        <div class="text-xs text-[var(--color-text-secondary)] uppercase tracking-wider mt-1">Models Affected</div>
+      </div>
+      <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-4 text-center">
+        <div class="text-2xl font-bold text-amber-600 dark:text-amber-400">{component.crash_count.toLocaleString()}</div>
+        <div class="text-xs text-[var(--color-text-secondary)] uppercase tracking-wider mt-1">Crashes</div>
+      </div>
+      <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-4 text-center">
+        <div class="text-2xl font-bold text-amber-600 dark:text-amber-400">{component.fire_count.toLocaleString()}</div>
+        <div class="text-xs text-[var(--color-text-secondary)] uppercase tracking-wider mt-1">Fires</div>
+      </div>
+      <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-4 text-center">
+        <div class="text-2xl font-bold text-amber-600 dark:text-amber-400">{component.death_count.toLocaleString()}</div>
+        <div class="text-xs text-[var(--color-text-secondary)] uppercase tracking-wider mt-1">Deaths</div>
+      </div>
+    </div>
+
+    <AdSlot slot="top" />
+
+    <!-- Most Affected Models -->
+    <div class="mb-8">
+      <h2 class="text-xl font-semibold text-[var(--color-text)] mb-4">Most Affected Vehicles</h2>
+      <div class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-[var(--color-border)] bg-[var(--color-bg)]">
+                <th class="px-4 py-3 text-left text-[var(--color-text-secondary)] font-medium">#</th>
+                <th class="px-4 py-3 text-left text-[var(--color-text-secondary)] font-medium">Vehicle</th>
+                <th class="px-4 py-3 text-right text-[var(--color-text-secondary)] font-medium">Complaints</th>
+                <th class="px-4 py-3 text-right text-[var(--color-text-secondary)] font-medium hidden md:table-cell">Crashes</th>
+                <th class="px-4 py-3 text-right text-[var(--color-text-secondary)] font-medium hidden md:table-cell">Deaths</th>
+              </tr>
+            </thead>
+            <tbody>
+              {topModels.map((m: any, i: number) => (
+                <tr class="border-b border-[var(--color-border)]">
+                  <td class="px-4 py-2.5 text-[var(--color-text-secondary)]">{i + 1}</td>
+                  <td class="px-4 py-2.5">
+                    <a href={`/make/${m.slug}`} class="text-[var(--color-primary)] hover:underline">{m.make_name} {m.model_name}</a>
+                  </td>
+                  <td class="px-4 py-2.5 text-right font-medium text-[var(--color-text)]">{m.complaint_count.toLocaleString()}</td>
+                  <td class="px-4 py-2.5 text-right text-[var(--color-text-secondary)] hidden md:table-cell">{m.crash_count}</td>
+                  <td class="px-4 py-2.5 text-right text-[var(--color-text-secondary)] hidden md:table-cell">{m.death_count}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <AdSlot slot="mid" />
+
+    <!-- Recent Complaints -->
+    {recentComplaints.length > 0 && (
+      <div class="mb-8">
+        <h2 class="text-xl font-semibold text-[var(--color-text)] mb-4">Recent Complaints</h2>
+        <div class="space-y-3">
+          {recentComplaints.map(c => (
+            <a href={`/complaint/${c.cmplid}`} class="block bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-4 hover:border-[var(--color-primary)] transition-colors">
+              <div class="flex flex-wrap gap-2 items-center mb-2">
+                <span class="text-sm font-medium text-[var(--color-text)]">{c.year} {c.make_name} {c.model_name}</span>
+                {c.crash === 'Y' && <span class="text-xs px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">Crash</span>}
+                {c.fire === 'Y' && <span class="text-xs px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">Fire</span>}
+                {c.deaths > 0 && <span class="text-xs px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">Fatal</span>}
+              </div>
+              <p class="text-sm text-[var(--color-text-secondary)] line-clamp-2">{c.summary?.slice(0, 200)}</p>
+            </a>
+          ))}
+        </div>
+      </div>
+    )}
+
+    <AdSlot slot="bottom" />
+
+    <div class="mt-8 text-sm text-[var(--color-text-secondary)]">
+      <p>Source: <a href="https://www.nhtsa.gov/recalls-complaints/complaints" class="text-[var(--color-primary)] hover:underline" target="_blank" rel="noopener">NHTSA Vehicle Complaints Database</a></p>
+    </div>
+  </div>
+  <script type="application/ld+json" set:html={breadcrumbSchema} />
+</Base>

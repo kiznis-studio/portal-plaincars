@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Parse NHTSA complaints flat file into local SQLite DB
-// Input: /storage/plaincars/FLAT_CMPL.txt (pipe-delimited, 2.18M rows)
+// Input: /storage/plaincars/FLAT_CMPL.txt (tab-delimited, 2.18M rows)
 // Output: data/plaincars.db
+// Mega-Grow: stores ALL complaints (no year filter), extracts VIN, builds materialized tables
 
 import Database from 'better-sqlite3';
 import { readFileSync, createReadStream } from 'fs';
@@ -84,6 +85,7 @@ async function main() {
     const component = (fields[11] || '').trim();
     const state = (fields[13] || '').trim();
     const dateAdded = (fields[15] || '').trim();
+    const vin = (fields[14] || '').trim();
     const mileage = parseInt(fields[17]) || null;
     const summary = (fields[19] || '').trim();
     const prodType = (fields[45] || '').trim();
@@ -148,17 +150,15 @@ async function main() {
       }
     }
 
-    // Store individual complaints for 2018+ or notable
-    if (yearRaw >= 2018 || deaths > 0 || injured > 0 || crash === 'Y' || fire === 'Y') {
-      complaints.push({
-        cmplid, odiNumber, myKey,
-        crash, fire, injured, deaths,
-        component, summary: summary.slice(0, 500),
-        fail_date: (fields[7] || '').trim(),
-        date_added: dateAdded,
-        mileage, state,
-      });
-    }
+    // Store ALL individual complaints (mega-grow: no year filter)
+    complaints.push({
+      cmplid, odiNumber, myKey, vin,
+      crash, fire, injured, deaths,
+      component, summary: summary.slice(0, 1000),
+      fail_date: (fields[7] || '').trim(),
+      date_added: dateAdded,
+      mileage, state,
+    });
   }
 
   console.log('  Parsed ' + lineCount + ' lines, skipped ' + skipped);
@@ -181,7 +181,7 @@ async function main() {
     'INSERT OR REPLACE INTO complaint_stats (my_id, component, complaint_count, crash_count, fire_count, injury_count, death_count, sample_text) VALUES (?,?,?,?,?,?,?,?)'
   );
   const insertComplaint = db.prepare(
-    'INSERT OR REPLACE INTO complaints (cmplid, my_id, odi_number, crash, fire, injured, deaths, component, summary, fail_date, date_added, mileage, state) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)'
+    'INSERT OR REPLACE INTO complaints (cmplid, my_id, odi_number, vin, crash, fire, injured, deaths, component, summary, fail_date, date_added, mileage, state) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
   );
 
   function buildMyId(makeName, modelName, year) {
@@ -240,7 +240,7 @@ async function main() {
       for (const c of batch) {
         const parts = c.myKey.split('|');
         const myId = buildMyId(parts[0], parts[1], parts[2]);
-        insertComplaint.run(c.cmplid, myId, c.odiNumber, c.crash, c.fire, c.injured, c.deaths, c.component, c.summary, c.fail_date, c.date_added, c.mileage, c.state);
+        insertComplaint.run(c.cmplid, myId, c.odiNumber, c.vin || null, c.crash, c.fire, c.injured, c.deaths, c.component, c.summary, c.fail_date, c.date_added, c.mileage, c.state);
       }
     })();
     complaintInserted += batch.length;
@@ -258,9 +258,12 @@ async function main() {
     (SELECT COUNT(*) FROM model_years) as total_model_years,
     (SELECT COUNT(*) FROM complaints) as total_complaints,
     (SELECT COUNT(*) FROM recalls) as total_recalls,
+    (SELECT SUM(death_count) FROM model_years) as total_deaths,
+    (SELECT SUM(injury_count) FROM model_years) as total_injuries,
     (SELECT AVG(complaint_count) FROM model_years WHERE complaint_count > 0) as avg_complaints_per_model,
     (SELECT AVG(overall_rating) FROM model_years WHERE overall_rating IS NOT NULL) as avg_rating,
-    (SELECT COUNT(*) FROM model_years WHERE overall_rating IS NOT NULL) as models_with_rating
+    (SELECT COUNT(*) FROM model_years WHERE overall_rating IS NOT NULL) as models_with_rating,
+    (SELECT COUNT(DISTINCT vin) FROM complaints WHERE vin IS NOT NULL AND vin != '') as total_vins
   `).get();
   db.prepare("INSERT OR REPLACE INTO _stats VALUES ('national_stats', ?)").run(JSON.stringify(ns));
 
@@ -268,6 +271,89 @@ async function main() {
   db.prepare("INSERT OR REPLACE INTO _stats VALUES ('state_complaints', ?)").run(JSON.stringify(sc));
 
   console.log('  _stats: national_stats, state_complaints (' + sc.length + ' states)');
+
+  // --- Phase 3: Materialized Tables ---
+  console.log('Phase 3: Building materialized tables...');
+
+  // Complaint trends by model x calendar year (extracted from date_added)
+  console.log('  Building complaint_trends...');
+  db.prepare('DELETE FROM complaint_trends').run();
+  db.prepare(`
+    INSERT INTO complaint_trends (model_id, cal_year, complaint_count, crash_count, fire_count, injury_count, death_count)
+    SELECT
+      my.model_id,
+      CAST(SUBSTR(c.date_added, 1, 4) AS INTEGER) as cal_year,
+      COUNT(*) as complaint_count,
+      SUM(CASE WHEN c.crash = 'Y' THEN 1 ELSE 0 END) as crash_count,
+      SUM(CASE WHEN c.fire = 'Y' THEN 1 ELSE 0 END) as fire_count,
+      SUM(c.injured) as injury_count,
+      SUM(c.deaths) as death_count
+    FROM complaints c
+    JOIN model_years my ON c.my_id = my.my_id
+    WHERE c.date_added IS NOT NULL AND LENGTH(c.date_added) >= 4
+      AND CAST(SUBSTR(c.date_added, 1, 4) AS INTEGER) BETWEEN 1995 AND 2026
+    GROUP BY my.model_id, cal_year
+  `).run();
+  const trendCount = db.prepare('SELECT COUNT(*) as cnt FROM complaint_trends').get().cnt;
+  console.log('    ' + trendCount + ' trend rows');
+
+  // Component summary: aggregate stats per component across all vehicles
+  console.log('  Building component_summary...');
+  db.prepare('DELETE FROM component_summary').run();
+  db.prepare(`
+    INSERT INTO component_summary (component_slug, component, complaint_count, crash_count, fire_count, injury_count, death_count, affected_makes, affected_models, top_models)
+    SELECT
+      LOWER(REPLACE(REPLACE(REPLACE(REPLACE(component, ' ', '-'), ':', '-'), '/', '-'), '--', '-')) as component_slug,
+      component,
+      COUNT(*) as complaint_count,
+      SUM(CASE WHEN crash = 'Y' THEN 1 ELSE 0 END) as crash_count,
+      SUM(CASE WHEN fire = 'Y' THEN 1 ELSE 0 END) as fire_count,
+      SUM(injured) as injury_count,
+      SUM(deaths) as death_count,
+      COUNT(DISTINCT my.make_id) as affected_makes,
+      COUNT(DISTINCT my.model_id) as affected_models,
+      NULL as top_models
+    FROM complaints c
+    JOIN model_years my ON c.my_id = my.my_id
+    WHERE component IS NOT NULL AND component != ''
+    GROUP BY component
+    HAVING complaint_count >= 5
+  `).run();
+  const compCount = db.prepare('SELECT COUNT(*) as cnt FROM component_summary').get().cnt;
+  console.log('    ' + compCount + ' component summary rows');
+
+  // Year summary: aggregate stats per vehicle model year
+  console.log('  Building year_summary...');
+  db.prepare('DELETE FROM year_summary').run();
+  db.prepare(`
+    INSERT INTO year_summary (year, complaint_count, crash_count, fire_count, injury_count, death_count, make_count, model_count, top_components)
+    SELECT
+      my.year,
+      SUM(my.complaint_count) as complaint_count,
+      SUM(my.crash_count) as crash_count,
+      SUM(my.fire_count) as fire_count,
+      SUM(my.injury_count) as injury_count,
+      SUM(my.death_count) as death_count,
+      COUNT(DISTINCT my.make_id) as make_count,
+      COUNT(DISTINCT my.model_id) as model_count,
+      NULL as top_components
+    FROM model_years my
+    GROUP BY my.year
+    ORDER BY my.year DESC
+  `).run();
+  const yearCount = db.prepare('SELECT COUNT(*) as cnt FROM year_summary').get().cnt;
+  console.log('    ' + yearCount + ' year summary rows');
+
+  // --- Composite Indexes ---
+  console.log('\nBuilding composite indexes...');
+  db.prepare('CREATE INDEX IF NOT EXISTS idx_model_years_make_year ON model_years(make_id, year DESC)').run();
+  db.prepare('CREATE INDEX IF NOT EXISTS idx_complaints_my_date ON complaints(my_id, date_added DESC)').run();
+
+  // --- Finalization ---
+  console.log('Analyzing and finalizing...');
+  db.pragma('journal_mode = DELETE');
+  db.prepare('ANALYZE').run();
+  db.prepare('VACUUM').run();
 
   db.close();
   console.log('Done! Database at ' + DB_PATH);
