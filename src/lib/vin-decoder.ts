@@ -42,14 +42,15 @@ for (let i = 0; i < yearChars.length; i++) {
 }
 
 // Disambiguate year code using VIN position 7 (model year qualifier)
-// Position 7 is numeric for cycle 2 (2010+), alpha for cycle 1 (1980-2009)
+// Per 49 CFR 565.15: position 7 is numeric for cycle 1 (1980-2009),
+// alphabetic for cycle 2 (2010-2039)
 function resolveYear(yearCode: string, pos7: string): number {
   const years = YEAR_CODES[yearCode.toUpperCase()];
   if (!years) return 0;
   if (years.length === 1) return years[0];
-  // If position 7 is a digit, it's cycle 2 (2010+)
-  // If position 7 is a letter, it's cycle 1 (1980-2009)
-  return /\d/.test(pos7) ? years[1] : years[0];
+  // If position 7 is alphabetic, it's cycle 2 (2010+)
+  // If position 7 is numeric, it's cycle 1 (1980-2009)
+  return /[A-Z]/i.test(pos7) ? years[1] : years[0];
 }
 
 // Element IDs for the fields we decode
