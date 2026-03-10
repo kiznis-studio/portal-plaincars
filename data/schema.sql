@@ -146,7 +146,7 @@ CREATE INDEX IF NOT EXISTS idx_model_years_make ON model_years(make_id);
 CREATE INDEX IF NOT EXISTS idx_model_years_year ON model_years(year);
 CREATE INDEX IF NOT EXISTS idx_complaint_stats_my ON complaint_stats(my_id);
 CREATE INDEX IF NOT EXISTS idx_complaints_my ON complaints(my_id);
-CREATE INDEX IF NOT EXISTS idx_complaints_vin ON complaints(vin) WHERE vin IS NOT NULL AND vin != '';
+CREATE INDEX IF NOT EXISTS idx_complaints_vin_date ON complaints(vin, date_added DESC);
 CREATE INDEX IF NOT EXISTS idx_complaints_component ON complaints(component);
 CREATE INDEX IF NOT EXISTS idx_complaints_date ON complaints(date_added DESC);
 CREATE INDEX IF NOT EXISTS idx_complaints_state ON complaints(state);
