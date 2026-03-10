@@ -6,13 +6,22 @@ import { warmQueryCache } from './lib/db';
 
 // --- DB initialization ---
 const DATABASE_PATH = process.env.DATABASE_PATH || '/data/portal.db';
+const VIN_DB_PATH = process.env.VIN_DB_PATH || '/data/vin-decoder.db';
 let db: ReturnType<typeof createD1Adapter> | null = null;
+let vinDb: ReturnType<typeof createD1Adapter> | null = null;
 function getDb() {
   if (!db) {
     if (!existsSync(DATABASE_PATH)) return null as any;
     db = createD1Adapter(DATABASE_PATH);
   }
   return db;
+}
+function getVinDb() {
+  if (!vinDb) {
+    if (!existsSync(VIN_DB_PATH)) return null;
+    vinDb = createD1Adapter(VIN_DB_PATH);
+  }
+  return vinDb;
 }
 
 // --- Concurrency guard ---
@@ -111,7 +120,7 @@ function getEdgeTtl(path: string): number {
 
 export const onRequest = defineMiddleware(async (context, next) => {
   const path = context.url.pathname;
-  (context.locals as any).runtime = { env: { DB: getDb() } };
+  (context.locals as any).runtime = { env: { DB: getDb(), VIN_DB: getVinDb() } };
 
   if (path === '/health') {
     if (!cacheWarmed) {

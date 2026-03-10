@@ -4,50 +4,37 @@ import Base from '../../layouts/Base.astro';
 import Breadcrumb from '../../components/ui/Breadcrumb.astro';
 import AdSlot from '../../components/ads/AdSlot.astro';
 import { getComplaintsByVin } from '../../lib/db';
+import { decodeVin } from '../../lib/vin-decoder';
 
 const db = Astro.locals.runtime.env.DB;
+const vinDb = Astro.locals.runtime.env.VIN_DB;
 const { vin } = Astro.params;
 const vinUpper = (vin || '').toUpperCase();
 
 if (vinUpper.length !== 17) return Astro.redirect('/vin');
 
-// Fetch NHTSA VIN decode in parallel with DB complaints
-interface VinResult { Variable: string; Value: string | null; ValueId: string | null; }
-interface VinResponse { Results: VinResult[]; }
-
-let decoded: VinResult[] = [];
-let decodeError = false;
-
-const [complaints, vinData] = await Promise.all([
+// Decode VIN locally (falls back to NHTSA API if local decode is incomplete)
+const [complaints, { decoded: vinResult, source: decodeSource }] = await Promise.all([
   getComplaintsByVin(db, vinUpper),
-  fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVin/${vinUpper}?format=json`)
-    .then(r => r.json() as Promise<VinResponse>)
-    .then(d => d.Results || [])
-    .catch(() => { decodeError = true; return [] as VinResult[]; }),
+  decodeVin(vinDb, vinUpper),
 ]);
-decoded = vinData;
 
-// Extract key specs from decoded VIN
-function getVal(name: string): string {
-  const r = decoded.find(d => d.Variable === name);
-  return r?.Value && r.Value !== 'Not Applicable' ? r.Value : '';
-}
-
-const make = getVal('Make');
-const model = getVal('Model');
-const year = getVal('Model Year');
-const bodyClass = getVal('Body Class');
-const driveType = getVal('Drive Type');
-const engineCylinders = getVal('Engine Number of Cylinders');
-const displacement = getVal('Displacement (L)');
-const fuelType = getVal('Fuel Type - Primary');
-const plantCity = getVal('Plant City');
-const plantState = getVal('Plant State');
-const plantCountry = getVal('Plant Country');
-const vehicleType = getVal('Vehicle Type');
-const gvwr = getVal('Gross Vehicle Weight Rating From');
-const errorCode = getVal('Error Code');
-const errorText = getVal('Error Text');
+const make = vinResult.make;
+const model = vinResult.model;
+const year = vinResult.year;
+const bodyClass = vinResult.bodyClass;
+const driveType = vinResult.driveType;
+const engineCylinders = vinResult.engineCylinders;
+const displacement = vinResult.displacementL;
+const fuelType = vinResult.fuelType;
+const plantCity = vinResult.plantCity;
+const plantState = vinResult.plantState;
+const plantCountry = vinResult.plantCountry;
+const vehicleType = vinResult.vehicleType;
+const gvwr = vinResult.gvwr;
+const errorCode = vinResult.errorCode;
+const errorText = vinResult.errorText;
+const decodeError = decodeSource === 'partial' && !make;
 
 const vehicleName = [year, make, model].filter(Boolean).join(' ') || vinUpper;
 const hasValidDecode = make && model && year && errorCode !== '6';
@@ -268,7 +255,7 @@ const specs = [
     <AdSlot slot="bottom" />
 
     <div class="mt-8 text-sm text-[var(--color-text-secondary)]">
-      <p>VIN decoding: <a href="https://vpic.nhtsa.dot.gov/api/" class="text-[var(--color-primary)] hover:underline" target="_blank" rel="noopener">NHTSA vPIC API</a>. Complaints: <a href="https://www.nhtsa.gov/recalls-complaints/complaints" class="text-[var(--color-primary)] hover:underline" target="_blank" rel="noopener">NHTSA Complaints Database</a>.</p>
+      <p>VIN decoding: <a href="https://vpic.nhtsa.dot.gov/" class="text-[var(--color-primary)] hover:underline" target="_blank" rel="noopener">NHTSA vPIC Database</a>{decodeSource !== 'local' && ' (API fallback)'}. Complaints: <a href="https://www.nhtsa.gov/recalls-complaints/complaints" class="text-[var(--color-primary)] hover:underline" target="_blank" rel="noopener">NHTSA Complaints Database</a>.</p>
     </div>
   </div>
   <script type="application/ld+json" set:html={breadcrumbSchema} />

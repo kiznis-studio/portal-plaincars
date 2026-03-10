@@ -5,8 +5,10 @@ services:
     restart: unless-stopped
     volumes:
       - /opt/portals/data/sqlite/plaincars.db:/data/portal.db:ro
+      - /opt/portals/data/sqlite/vin-decoder.db:/data/vin-decoder.db:ro
     environment:
       - DATABASE_PATH=/data/portal.db
+      - VIN_DB_PATH=/data/vin-decoder.db
       - HOST=0.0.0.0
       - PORT=4321
       - CACHE_ENTRIES=500
