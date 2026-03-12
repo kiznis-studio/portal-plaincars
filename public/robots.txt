@@ -6,17 +6,12 @@ Allow: /
 # Sitemaps
 Sitemap: https://plaincars.com/sitemap-index.xml
 
-# AI Crawlers - Welcome
-User-agent: GPTBot
+# AI Crawler Governance
+# Citation bots — ALLOWED (these link back to your content)
+User-agent: ChatGPT-User
 Allow: /
 
-User-agent: Claude-Web
-Allow: /
-
-User-agent: Anthropic-AI
-Allow: /
-
-User-agent: Google-Extended
+User-agent: Claude-User
 Allow: /
 
 User-agent: PerplexityBot
@@ -24,3 +19,13 @@ Allow: /
 
 User-agent: CCBot
 Allow: /
+
+# Training bots — BLOCKED (scrape for model training, no attribution)
+User-agent: GPTBot
+Disallow: /
+
+User-agent: anthropic-ai
+Disallow: /
+
+User-agent: Google-Extended
+Disallow: /
