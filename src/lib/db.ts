@@ -797,14 +797,15 @@ export async function getAllComponents(db: D1Database): Promise<ComponentSummary
 export function getRelatedComponents(
   db: D1Database, excludeSlug: string, limit = 6
 ): Promise<Pick<ComponentSummary, 'component_slug' | 'component' | 'complaint_count' | 'death_count' | 'affected_models'>[]> {
-  return cached(`relatedComponents:${excludeSlug}:${limit}`, async () => {
+  const fetchSize = limit + 5;
+  return cached(`relatedComponents:${fetchSize}`, async () => {
     const { results } = await db.prepare(
       `SELECT component_slug, component, complaint_count, death_count, affected_models
-       FROM component_summary WHERE component_slug != ?
+       FROM component_summary
        ORDER BY complaint_count DESC LIMIT ?`
-    ).bind(excludeSlug, limit).all();
-    return results as any[];
-  });
+    ).bind(fetchSize).all();
+    return results as Pick<ComponentSummary, 'component_slug' | 'component' | 'complaint_count' | 'death_count' | 'affected_models'>[];
+  }).then(all => all.filter(c => c.component_slug !== excludeSlug).slice(0, limit));
 }
 
 export async function getComponentBySlug(db: D1Database, slug: string): Promise<ComponentSummary | null> {
