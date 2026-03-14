@@ -4,7 +4,7 @@ services:
     container_name: portal-plaincars
     restart: unless-stopped
     volumes:
-      - /opt/portals/data/sqlite/plaincars.db:/data/portal.db:ro
+      - /opt/portals/data/sqlite/plaincars.db:/data/portal.db
       - /opt/portals/data/sqlite/vin-decoder.db:/data/vin-decoder.db:ro
       - /opt/portals/data/cache/plaincars:/data/cache
     environment:
@@ -14,6 +14,10 @@ services:
       - HOST=0.0.0.0
       - PORT=4321
       - CACHE_ENTRIES=500
+      - WORKERS=1
+      - WORKERS_MAX=4
+      - MGMT_PORT=4322
+      - MAX_BOT_CONCURRENT=25
     networks:
       - portals
     mem_limit: 768m
