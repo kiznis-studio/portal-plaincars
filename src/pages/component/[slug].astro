@@ -3,7 +3,7 @@ export const prerender = false;
 import Base from '../../layouts/Base.astro';
 import Breadcrumb from '../../components/ui/Breadcrumb.astro';
 import AdSlot from '../../components/ads/AdSlot.astro';
-import { getComponentBySlug, getComponentTopModels, getComponentRecentComplaints } from '../../lib/db';
+import { getComponentBySlug, getComponentTopModels, getComponentRecentComplaints, getRelatedComponents } from '../../lib/db';
 
 const db = Astro.locals.runtime.env.DB;
 const { slug } = Astro.params;
@@ -12,10 +12,45 @@ if (!slug) return Astro.redirect('/404');
 const component = await getComponentBySlug(db, slug);
 if (!component) return Astro.redirect('/404');
 
-const [topModels, recentComplaints] = await Promise.all([
+const [topModels, recentComplaints, relatedComponents] = await Promise.all([
   getComponentTopModels(db, component.component, 30),
   getComponentRecentComplaints(db, component.component, 20),
+  getRelatedComponents(db, slug!, 6),
 ]);
+
+const pageTitle = `${component.component} — ${component.complaint_count.toLocaleString()} Complaints, ${component.death_count} Deaths | PlainCars`;
+const pageDesc = `${component.complaint_count.toLocaleString()} NHTSA complaints about ${component.component.toLowerCase()} across ${component.affected_models} vehicle models. ${component.crash_count} crashes, ${component.fire_count} fires, ${component.death_count} deaths reported.`;
+
+const faqItems = [
+  {
+    q: `How many complaints involve ${component.component.toLowerCase()} issues?`,
+    a: `The NHTSA has received ${component.complaint_count.toLocaleString()} complaints about ${component.component.toLowerCase()} problems across ${component.affected_models} vehicle models from ${component.affected_makes} manufacturers.`
+  },
+  {
+    q: `How dangerous are ${component.component.toLowerCase()} defects?`,
+    a: `${component.component} issues have been linked to ${component.crash_count.toLocaleString()} crashes, ${component.fire_count.toLocaleString()} fires, ${component.injury_count.toLocaleString()} injuries, and ${component.death_count.toLocaleString()} deaths according to NHTSA complaint data.`
+  },
+  {
+    q: `Which vehicles have the most ${component.component.toLowerCase()} problems?`,
+    a: topModels.length > 0
+      ? `The most complained-about vehicle for ${component.component.toLowerCase()} issues is the ${topModels[0].make_name} ${topModels[0].model_name} with ${topModels[0].complaint_count.toLocaleString()} complaints.`
+      : `See the full list of affected vehicles on this page.`
+  },
+  {
+    q: 'Where does PlainCars get its safety data?',
+    a: 'All vehicle safety data comes from the National Highway Traffic Safety Administration (NHTSA) complaints database, which collects reports from vehicle owners about safety-related defects.'
+  },
+];
+
+const faqSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: faqItems.map(f => ({
+    '@type': 'Question',
+    name: f.q,
+    acceptedAnswer: { '@type': 'Answer', text: f.a },
+  })),
+};
 
 const breadcrumbs = [
   { name: 'Home', href: '/' },
@@ -35,8 +70,8 @@ const breadcrumbSchema = JSON.stringify({
 ---
 
 <Base
-  title={`${component.component} — NHTSA Safety Complaints`}
-  description={`${component.complaint_count.toLocaleString()} NHTSA complaints about ${component.component} across ${component.affected_models} vehicle models. See which vehicles have the most ${component.component.toLowerCase()} problems.`}
+  title={pageTitle}
+  description={pageDesc}
   breadcrumbs={breadcrumbs}
 >
   <div class="max-w-6xl mx-auto px-4 py-8">
@@ -132,9 +167,70 @@ const breadcrumbSchema = JSON.stringify({
 
     <AdSlot slot="bottom" />
 
-    <div class="mt-8 text-sm text-[var(--color-text-secondary)]">
-      <p>Source: <a href="https://www.nhtsa.gov/recalls-complaints/complaints" class="text-[var(--color-primary)] hover:underline" target="_blank" rel="noopener">NHTSA Vehicle Complaints Database</a></p>
+    <!-- Related Components -->
+    {relatedComponents.length > 0 && (
+      <div class="mb-8">
+        <h2 class="text-xl font-semibold text-[var(--color-text)] mb-4">Other Vehicle Components</h2>
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+          {relatedComponents.map(rc => (
+            <a href={`/component/${rc.component_slug}`} class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-4 hover:border-[var(--color-primary)] transition-colors">
+              <p class="font-semibold text-sm text-[var(--color-text)]">{rc.component}</p>
+              <p class="text-xs text-[var(--color-text-secondary)] mt-1">{rc.complaint_count.toLocaleString()} complaints</p>
+              {rc.death_count > 0 && <p class="text-xs text-amber-600 dark:text-amber-400 mt-0.5">{rc.death_count} deaths</p>}
+            </a>
+          ))}
+        </div>
+      </div>
+    )}
+
+    <!-- Cross-Portal Data Links -->
+    <div class="mb-8">
+      <h2 class="text-xl font-semibold text-[var(--color-text)] mb-4">Related Safety Data</h2>
+      <div class="grid sm:grid-cols-2 md:grid-cols-3 gap-3">
+        {[
+          { emoji: '⚠️', title: 'Vehicle Recalls', desc: 'FDA, CPSC & NHTSA recall search', href: `https://plainrecalls.com/search?q=${encodeURIComponent(component.component)}` },
+          { emoji: '🛣️', title: 'Road Fatality Data', desc: 'NHTSA FARS crash statistics', href: 'https://plainroadsafety.com/' },
+          { emoji: '🔬', title: 'NHTSA Investigations', desc: 'Active safety investigations', href: '/investigations' },
+        ].map(link => (
+          <a href={link.href} class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-4 hover:border-[var(--color-primary)] transition-colors" target={link.href.startsWith('http') ? '_blank' : undefined} rel={link.href.startsWith('http') ? 'noopener' : undefined}>
+            <p class="font-semibold text-sm text-[var(--color-text)]">{link.emoji} {link.title}</p>
+            <p class="text-xs text-[var(--color-text-secondary)]">{link.desc}</p>
+          </a>
+        ))}
+      </div>
+    </div>
+
+    <!-- FAQ Section -->
+    <div class="mb-8">
+      <h2 class="text-xl font-semibold text-[var(--color-text)] mb-4">Frequently Asked Questions</h2>
+      <div class="space-y-3">
+        {faqItems.map(f => (
+          <details class="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg group">
+            <summary class="flex items-center justify-between cursor-pointer font-medium p-4 text-[var(--color-text)]">
+              {f.q}
+              <span class="ml-2 text-[var(--color-text-secondary)] group-open:rotate-180 transition-transform">&#9660;</span>
+            </summary>
+            <div class="px-4 pb-4 text-[var(--color-text-secondary)] text-sm">{f.a}</div>
+          </details>
+        ))}
+      </div>
+    </div>
+
+    <!-- Data Sources -->
+    <div class="mb-8">
+      <h2 class="text-xl font-semibold text-[var(--color-text)] mb-4">Data Sources</h2>
+      <div class="text-sm text-[var(--color-text-secondary)] space-y-2">
+        <p>
+          Vehicle complaint data from the <a href="https://www.nhtsa.gov/recalls-complaints/complaints" class="text-[var(--color-primary)] hover:underline" target="_blank" rel="noopener">National Highway Traffic Safety Administration (NHTSA)</a> complaints database.
+          Includes consumer-reported safety issues filed with NHTSA's Office of Defects Investigation.
+        </p>
+        <p>
+          Component categories are standardized by NHTSA. Complaint counts, crash reports, fire reports,
+          and fatality data reflect consumer-submitted reports and may not represent all incidents.
+        </p>
+      </div>
     </div>
   </div>
   <script type="application/ld+json" set:html={breadcrumbSchema} />
+  <script type="application/ld+json" set:html={JSON.stringify(faqSchema)} />
 </Base>

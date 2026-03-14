@@ -794,6 +794,19 @@ export async function getAllComponents(db: D1Database): Promise<ComponentSummary
   });
 }
 
+export function getRelatedComponents(
+  db: D1Database, excludeSlug: string, limit = 6
+): Promise<Pick<ComponentSummary, 'component_slug' | 'component' | 'complaint_count' | 'death_count' | 'affected_models'>[]> {
+  return cached(`relatedComponents:${excludeSlug}:${limit}`, async () => {
+    const { results } = await db.prepare(
+      `SELECT component_slug, component, complaint_count, death_count, affected_models
+       FROM component_summary WHERE component_slug != ?
+       ORDER BY complaint_count DESC LIMIT ?`
+    ).bind(excludeSlug, limit).all();
+    return results as any[];
+  });
+}
+
 export async function getComponentBySlug(db: D1Database, slug: string): Promise<ComponentSummary | null> {
   return db.prepare(
     'SELECT * FROM component_summary WHERE component_slug = ?'
