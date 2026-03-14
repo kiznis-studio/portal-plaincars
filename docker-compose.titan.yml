@@ -13,7 +13,7 @@ services:
       - VIN_CACHE_PATH=/data/cache/vin-api-cache.db
       - HOST=0.0.0.0
       - PORT=4321
-      - CACHE_ENTRIES=500
+      - CACHE_ENTRIES=5000
       - WORKERS=1
       - WORKERS_MAX=4
       - MGMT_PORT=4322
